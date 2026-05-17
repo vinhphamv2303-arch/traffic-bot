@@ -1,0 +1,77 @@
+{
+  "package_id": "12_2025_TTBCA",
+  "document_id": "12_2025_tt_bca",
+  "document_number": "12/2025/TT-BCA",
+  "attachment_id": "12_2025_tt_bca.mau_so_01_ban_de_nghi_xac_minh_giay_phep_lai_xe",
+  "attachment_slug": "mau_so_01_ban_de_nghi_xac_minh_giay_phep_lai_xe",
+  "attachment_kind": "form",
+  "classifier_confidence": 0.9,
+  "classifier_reason": "filename starts with Mau/DKX",
+  "label": "Mẫu số 01",
+  "title": "BẢN ĐỀ NGHỊ XÁC MINH GIẤY PHÉP LÁI XE",
+  "issued_with": null,
+  "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 01. Ban de nghi xac minh giay phep lai xe.docx",
+  "parser": "form_parser",
+  "parsed_dir": "attachments\\mau_so_01_ban_de_nghi_xac_minh_giay_phep_lai_xe",
+  "unit_count": 17,
+  "table_count": 2,
+  "table_row_count": 2,
+  "form_field_count": 9,
+  "parent_appendix_labels": [
+    "Phụ lục XI"
+  ],
+  "parent_appendix_label": "Phụ lục XI",
+  "parent_appendix_inferences": [
+    {
+      "appendix_label": "Phụ lục XI",
+      "form_number_norm": "1",
+      "method": "main_body_reference_context",
+      "confidence": 0.94,
+      "evidence_count": 3,
+      "evidence": [
+        {
+          "source_unit_id": "12_2025_tt_bca.dieu_21.khoan_3.diem_b",
+          "source_path_text": "12/2025/TT-BCA > Chương III. CẤP, ĐỔI, CẤP LẠI, THU HỒI GIẤY PHÉP LÁI XE > Điều 21. Đổi giấy phép lái xe > Khoản 3. Trình tự thực hiện > Điểm b. Phòng Cảnh sát giao thông hoặc Công an cấp xã nơi được bố trí điểm tiếp nhận kiểm tra hồ sơ khi tiếp nhận và tra cứu thông tin về giấy phép lái xe từ hệ thống thông tin giấy phép lái xe, trường hợp chưa có thông tin phải có văn bản đề nghị xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này (khi chưa có kết quả xác minh giấy phép lái xe thì chưa giải quyết đề nghị); tra cứu phần mềm cơ sở dữ liệu về trật tự, an toàn giao thông đường bộ hoặc tra cứu vi phạm của người lái xe thông qua tài khoản định danh điện tử.",
+          "text": "ếp nhận và tra cứu thông tin về giấy phép lái xe từ hệ thống thông tin giấy phép lái xe, trường hợp chưa có thông tin phải có văn bản đề nghị xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này (khi chưa có kết quả xác minh giấy phép lái xe thì chưa giải quyết đề nghị); tra cứu phần mềm cơ sở dữ liệu về trật tự, an toàn giao thông đường bộ"
+        },
+        {
+          "source_unit_id": "12_2025_tt_bca.dieu_22.khoan_3.diem_b",
+          "source_path_text": "12/2025/TT-BCA > Chương III. CẤP, ĐỔI, CẤP LẠI, THU HỒI GIẤY PHÉP LÁI XE > Điều 22. Đổi giấy phép lái xe quân sự do Bộ Quốc phòng cấp > Khoản 3. Trình tự thực hiện > Điểm b. Phòng Cảnh sát giao thông hoặc Công an cấp xã nơi bố trí điểm tiếp nhận kiểm tra hồ sơ khi tiếp nhận, tra cứu phần mềm cơ sở dữ liệu về trật tự, an toàn giao thông đường bộ hoặc tra cứu vi phạm của người lái xe thông qua tài khoản định danh điện tử. Trường hợp phát hiện có nghi vấn, Phòng Cảnh sát giao thông có văn bản đề nghị đơn vị chức năng thuộc Bộ Quốc phòng xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này. Khi chưa có kết quả xác minh giấy phép lái xe hoặc có kết quả xác minh giấy phép lái xe không do Bộ Quốc phòng cấp thì không đổi giấy phép lái xe.",
+          "text": "khoản định danh điện tử. Trường hợp phát hiện có nghi vấn, Phòng Cảnh sát giao thông có văn bản đề nghị đơn vị chức năng thuộc Bộ Quốc phòng xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này. Khi chưa có kết quả xác minh giấy phép lái xe hoặc có kết quả xác minh giấy phép lái xe không do Bộ Quốc phòng cấp thì không đổi giấy phép lái xe."
+        },
+        {
+          "source_unit_id": "12_2025_tt_bca.dieu_23.khoan_3.diem_b",
+          "source_path_text": "12/2025/TT-BCA > Chương III. CẤP, ĐỔI, CẤP LẠI, THU HỒI GIẤY PHÉP LÁI XE > Điều 23. Đổi giấy phép lái xe trong Công an nhân dân > Khoản 3. Trình tự thực hiện > Điểm b. Phòng Cảnh sát giao thông hoặc Công an cấp xã nơi được bố trí điểm tiếp nhận kiểm tra hồ sơ khi tiếp nhận và tra cứu phần mềm cơ sở dữ liệu về trật tự, an toàn giao thông đường bộ hoặc tra cứu vi phạm của người lái xe thông qua tài khoản định danh điện tử. Trường hợp phát hiện có nghi vấn, Phòng Cảnh sát giao thông có văn bản đề nghị đơn vị cấp giấy phép lái xe xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này, khi chưa có kết quả xác minh giấy phép lái xe thì chưa đổi giấy phép lái xe.",
+          "text": "g qua tài khoản định danh điện tử. Trường hợp phát hiện có nghi vấn, Phòng Cảnh sát giao thông có văn bản đề nghị đơn vị cấp giấy phép lái xe xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này, khi chưa có kết quả xác minh giấy phép lái xe thì chưa đổi giấy phép lái xe."
+        }
+      ],
+      "alternatives": [
+        {
+          "attachment_id": "12_2025_tt_bca.mau_so_01_ban_de_nghi_xac_minh_giay_phep_lai_xe",
+          "title": "BẢN ĐỀ NGHỊ XÁC MINH GIẤY PHÉP LÁI XE",
+          "score": 0.94
+        },
+        {
+          "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_kiem_tra_ho_so_va_dieu_kien_du_thi_cua_thi_sinh_du_sat_hach",
+          "title": "BIÊN BẢN KIỂM TRA HỒ SƠ VÀ ĐIỀU KIỆN DỰ THI CỦA THÍ SINH DỰ SÁT HẠCH LÁI XE",
+          "score": 0.7122
+        },
+        {
+          "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_tong_hop_ket_qua_sat_hach_lai_xe_doi_voi_thi_sinh_du_sat_hach_cac_hang",
+          "title": "BIÊN BẢN TỔNG HỢP KẾT QUẢ SÁT HẠCH LÁI XE HẠNG B1 VÀ Ô TÔ",
+          "score": 0.667
+        },
+        {
+          "attachment_id": "12_2025_tt_bca.mau_so_01_bao_cao_chung_ket_qua_ky_sat_hach_lai_xe",
+          "title": "BÁO CÁO CHUNG KẾT QUẢ KỲ SÁT HẠCH LÁI XE",
+          "score": 0.6455
+        },
+        {
+          "attachment_id": "12_2025_tt_bca.phu_luc_xiv",
+          "title": "TRANG SỐ 1 TRANG SỐ 2 TRANG SỐ 3 TRANG SỐ 5 TRANG SỐ 6 TRANG SỐ 7 TRANG SỐ 8 TRANG SỐ 9",
+          "score": 0.4844
+        }
+      ]
+    }
+  ]
+}

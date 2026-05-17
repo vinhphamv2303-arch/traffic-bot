@@ -1,0 +1,1083 @@
+{
+  "package_id": "12_2025_TTBCA",
+  "source_dir": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA",
+  "main_document": {
+    "document_id": "12_2025_tt_bca",
+    "document_number": "12/2025/TT-BCA",
+    "document_type": "THÔNG TƯ",
+    "document_title": "THÔNG TƯ Quy định về sát hạch, cấp giấy phép lái xe; cấp, sử dụng giấy phép lái xe quốc tế ___________________",
+    "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Thông tư 12_2025_TT-BCA DOC.docx",
+    "parsed_dir": "main",
+    "unit_count": 455,
+    "table_count": 0,
+    "ref_mention_count": 183,
+    "amendment_mention_count": 0
+  },
+  "attachments": [
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.mau_so_01_ban_de_nghi_xac_minh_giay_phep_lai_xe",
+      "attachment_slug": "mau_so_01_ban_de_nghi_xac_minh_giay_phep_lai_xe",
+      "attachment_kind": "form",
+      "classifier_confidence": 0.9,
+      "classifier_reason": "filename starts with Mau/DKX",
+      "label": "Mẫu số 01",
+      "title": "BẢN ĐỀ NGHỊ XÁC MINH GIẤY PHÉP LÁI XE",
+      "issued_with": null,
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 01. Ban de nghi xac minh giay phep lai xe.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\mau_so_01_ban_de_nghi_xac_minh_giay_phep_lai_xe",
+      "unit_count": 17,
+      "table_count": 2,
+      "table_row_count": 2,
+      "form_field_count": 9,
+      "parent_appendix_labels": [
+        "Phụ lục XI"
+      ],
+      "parent_appendix_label": "Phụ lục XI",
+      "parent_appendix_inferences": [
+        {
+          "appendix_label": "Phụ lục XI",
+          "form_number_norm": "1",
+          "method": "main_body_reference_context",
+          "confidence": 0.94,
+          "evidence_count": 3,
+          "evidence": [
+            {
+              "source_unit_id": "12_2025_tt_bca.dieu_21.khoan_3.diem_b",
+              "source_path_text": "12/2025/TT-BCA > Chương III. CẤP, ĐỔI, CẤP LẠI, THU HỒI GIẤY PHÉP LÁI XE > Điều 21. Đổi giấy phép lái xe > Khoản 3. Trình tự thực hiện > Điểm b. Phòng Cảnh sát giao thông hoặc Công an cấp xã nơi được bố trí điểm tiếp nhận kiểm tra hồ sơ khi tiếp nhận và tra cứu thông tin về giấy phép lái xe từ hệ thống thông tin giấy phép lái xe, trường hợp chưa có thông tin phải có văn bản đề nghị xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này (khi chưa có kết quả xác minh giấy phép lái xe thì chưa giải quyết đề nghị); tra cứu phần mềm cơ sở dữ liệu về trật tự, an toàn giao thông đường bộ hoặc tra cứu vi phạm của người lái xe thông qua tài khoản định danh điện tử.",
+              "text": "ếp nhận và tra cứu thông tin về giấy phép lái xe từ hệ thống thông tin giấy phép lái xe, trường hợp chưa có thông tin phải có văn bản đề nghị xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này (khi chưa có kết quả xác minh giấy phép lái xe thì chưa giải quyết đề nghị); tra cứu phần mềm cơ sở dữ liệu về trật tự, an toàn giao thông đường bộ"
+            },
+            {
+              "source_unit_id": "12_2025_tt_bca.dieu_22.khoan_3.diem_b",
+              "source_path_text": "12/2025/TT-BCA > Chương III. CẤP, ĐỔI, CẤP LẠI, THU HỒI GIẤY PHÉP LÁI XE > Điều 22. Đổi giấy phép lái xe quân sự do Bộ Quốc phòng cấp > Khoản 3. Trình tự thực hiện > Điểm b. Phòng Cảnh sát giao thông hoặc Công an cấp xã nơi bố trí điểm tiếp nhận kiểm tra hồ sơ khi tiếp nhận, tra cứu phần mềm cơ sở dữ liệu về trật tự, an toàn giao thông đường bộ hoặc tra cứu vi phạm của người lái xe thông qua tài khoản định danh điện tử. Trường hợp phát hiện có nghi vấn, Phòng Cảnh sát giao thông có văn bản đề nghị đơn vị chức năng thuộc Bộ Quốc phòng xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này. Khi chưa có kết quả xác minh giấy phép lái xe hoặc có kết quả xác minh giấy phép lái xe không do Bộ Quốc phòng cấp thì không đổi giấy phép lái xe.",
+              "text": "khoản định danh điện tử. Trường hợp phát hiện có nghi vấn, Phòng Cảnh sát giao thông có văn bản đề nghị đơn vị chức năng thuộc Bộ Quốc phòng xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này. Khi chưa có kết quả xác minh giấy phép lái xe hoặc có kết quả xác minh giấy phép lái xe không do Bộ Quốc phòng cấp thì không đổi giấy phép lái xe."
+            },
+            {
+              "source_unit_id": "12_2025_tt_bca.dieu_23.khoan_3.diem_b",
+              "source_path_text": "12/2025/TT-BCA > Chương III. CẤP, ĐỔI, CẤP LẠI, THU HỒI GIẤY PHÉP LÁI XE > Điều 23. Đổi giấy phép lái xe trong Công an nhân dân > Khoản 3. Trình tự thực hiện > Điểm b. Phòng Cảnh sát giao thông hoặc Công an cấp xã nơi được bố trí điểm tiếp nhận kiểm tra hồ sơ khi tiếp nhận và tra cứu phần mềm cơ sở dữ liệu về trật tự, an toàn giao thông đường bộ hoặc tra cứu vi phạm của người lái xe thông qua tài khoản định danh điện tử. Trường hợp phát hiện có nghi vấn, Phòng Cảnh sát giao thông có văn bản đề nghị đơn vị cấp giấy phép lái xe xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này, khi chưa có kết quả xác minh giấy phép lái xe thì chưa đổi giấy phép lái xe.",
+              "text": "g qua tài khoản định danh điện tử. Trường hợp phát hiện có nghi vấn, Phòng Cảnh sát giao thông có văn bản đề nghị đơn vị cấp giấy phép lái xe xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này, khi chưa có kết quả xác minh giấy phép lái xe thì chưa đổi giấy phép lái xe."
+            }
+          ],
+          "alternatives": [
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_01_ban_de_nghi_xac_minh_giay_phep_lai_xe",
+              "title": "BẢN ĐỀ NGHỊ XÁC MINH GIẤY PHÉP LÁI XE",
+              "score": 0.94
+            },
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_kiem_tra_ho_so_va_dieu_kien_du_thi_cua_thi_sinh_du_sat_hach",
+              "title": "BIÊN BẢN KIỂM TRA HỒ SƠ VÀ ĐIỀU KIỆN DỰ THI CỦA THÍ SINH DỰ SÁT HẠCH LÁI XE",
+              "score": 0.7122
+            },
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_tong_hop_ket_qua_sat_hach_lai_xe_doi_voi_thi_sinh_du_sat_hach_cac_hang",
+              "title": "BIÊN BẢN TỔNG HỢP KẾT QUẢ SÁT HẠCH LÁI XE HẠNG B1 VÀ Ô TÔ",
+              "score": 0.667
+            },
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_01_bao_cao_chung_ket_qua_ky_sat_hach_lai_xe",
+              "title": "BÁO CÁO CHUNG KẾT QUẢ KỲ SÁT HẠCH LÁI XE",
+              "score": 0.6455
+            },
+            {
+              "attachment_id": "12_2025_tt_bca.phu_luc_xiv",
+              "title": "TRANG SỐ 1 TRANG SỐ 2 TRANG SỐ 3 TRANG SỐ 5 TRANG SỐ 6 TRANG SỐ 7 TRANG SỐ 8 TRANG SỐ 9",
+              "score": 0.4844
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.mau_so_01_bao_cao_chung_ket_qua_ky_sat_hach_lai_xe",
+      "attachment_slug": "mau_so_01_bao_cao_chung_ket_qua_ky_sat_hach_lai_xe",
+      "attachment_kind": "form",
+      "classifier_confidence": 0.9,
+      "classifier_reason": "filename starts with Mau/DKX",
+      "label": "Mẫu số 01",
+      "title": "BÁO CÁO CHUNG KẾT QUẢ KỲ SÁT HẠCH LÁI XE",
+      "issued_with": null,
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 01. Bao cao chung ket qua ky sat hach lai xe.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\mau_so_01_bao_cao_chung_ket_qua_ky_sat_hach_lai_xe",
+      "unit_count": 16,
+      "table_count": 3,
+      "table_row_count": 5,
+      "form_field_count": 2
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_kiem_tra_ho_so_va_dieu_kien_du_thi_cua_thi_sinh_du_sat_hach",
+      "attachment_slug": "mau_so_01_bien_ban_kiem_tra_ho_so_va_dieu_kien_du_thi_cua_thi_sinh_du_sat_hach",
+      "attachment_kind": "form",
+      "classifier_confidence": 0.9,
+      "classifier_reason": "filename starts with Mau/DKX",
+      "label": "Mẫu số 01",
+      "title": "BIÊN BẢN KIỂM TRA HỒ SƠ VÀ ĐIỀU KIỆN DỰ THI CỦA THÍ SINH DỰ SÁT HẠCH LÁI XE",
+      "issued_with": null,
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 01. Bien ban kiem tra ho so va dieu kien du thi cua thi sinh du sat hach.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\mau_so_01_bien_ban_kiem_tra_ho_so_va_dieu_kien_du_thi_cua_thi_sinh_du_sat_hach",
+      "unit_count": 33,
+      "table_count": 3,
+      "table_row_count": 12,
+      "form_field_count": 5,
+      "parent_appendix_labels": [
+        "Phụ lục VIII"
+      ],
+      "parent_appendix_label": "Phụ lục VIII",
+      "parent_appendix_inferences": [
+        {
+          "appendix_label": "Phụ lục VIII",
+          "form_number_norm": "1",
+          "method": "main_body_reference_context",
+          "confidence": 0.8178,
+          "evidence_count": 1,
+          "evidence": [
+            {
+              "source_unit_id": "12_2025_tt_bca.dieu_9.khoan_2.diem_a",
+              "source_path_text": "12/2025/TT-BCA > Chương II. SÁT HẠCH LÁI XE > Điều 9. Chuẩn bị kỳ sát hạch > Khoản 2. Kiểm tra hồ sơ > Điểm a. Khi tiếp nhận hồ sơ đề nghị sát hạch cấp giấy phép lái xe, Phòng Cảnh sát giao thông kiểm tra, đối chiếu điều kiện của người dự sát hạch theo quy định tại Điều 15 và Điều 16 Thông tư này; duyệt hồ sơ thí sinh dự sát hạch, lập biên bản kiểm tra hồ sơ theo quy định tại mẫu số 01 Phụ lục VIII ban hành kèm theo Thông tư này và thông báo thời gian, địa điểm tổ chức kỳ sát hạch cho người nộp hồ sơ; báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe; đối với hồ sơ không hợp lệ thì thông báo và hướng dẫn người nộp hồ sơ hoàn thiện theo quy định;",
+              "text": "m tra, đối chiếu điều kiện của người dự sát hạch theo quy định tại Điều 15 và Điều 16 Thông tư này; duyệt hồ sơ thí sinh dự sát hạch, lập biên bản kiểm tra hồ sơ theo quy định tại mẫu số 01 Phụ lục VIII ban hành kèm theo Thông tư này và thông báo thời gian, địa điểm tổ chức kỳ sát hạch cho người nộp hồ sơ; báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch"
+            }
+          ],
+          "alternatives": [
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_kiem_tra_ho_so_va_dieu_kien_du_thi_cua_thi_sinh_du_sat_hach",
+              "title": "BIÊN BẢN KIỂM TRA HỒ SƠ VÀ ĐIỀU KIỆN DỰ THI CỦA THÍ SINH DỰ SÁT HẠCH LÁI XE",
+              "score": 0.8178
+            },
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_01_ban_de_nghi_xac_minh_giay_phep_lai_xe",
+              "title": "BẢN ĐỀ NGHỊ XÁC MINH GIẤY PHÉP LÁI XE",
+              "score": 0.7205
+            },
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_tong_hop_ket_qua_sat_hach_lai_xe_doi_voi_thi_sinh_du_sat_hach_cac_hang",
+              "title": "BIÊN BẢN TỔNG HỢP KẾT QUẢ SÁT HẠCH LÁI XE HẠNG B1 VÀ Ô TÔ",
+              "score": 0.7118
+            },
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_01_bao_cao_chung_ket_qua_ky_sat_hach_lai_xe",
+              "title": "BÁO CÁO CHUNG KẾT QUẢ KỲ SÁT HẠCH LÁI XE",
+              "score": 0.7108
+            },
+            {
+              "attachment_id": "12_2025_tt_bca.phu_luc_xiv",
+              "title": "TRANG SỐ 1 TRANG SỐ 2 TRANG SỐ 3 TRANG SỐ 5 TRANG SỐ 6 TRANG SỐ 7 TRANG SỐ 8 TRANG SỐ 9",
+              "score": 0.4709
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_tong_hop_ket_qua_sat_hach_lai_xe_doi_voi_thi_sinh_du_sat_hach_cac_hang",
+      "attachment_slug": "mau_so_01_bien_ban_tong_hop_ket_qua_sat_hach_lai_xe_doi_voi_thi_sinh_du_sat_hach_cac_hang",
+      "attachment_kind": "form",
+      "classifier_confidence": 0.9,
+      "classifier_reason": "filename starts with Mau/DKX",
+      "label": "Mẫu số 01",
+      "title": "BIÊN BẢN TỔNG HỢP KẾT QUẢ SÁT HẠCH LÁI XE HẠNG B1 VÀ Ô TÔ",
+      "issued_with": null,
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 01. Bien ban tong hop ket qua sat hach lai xe doi voi thi sinh du sat hach cac hang.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\mau_so_01_bien_ban_tong_hop_ket_qua_sat_hach_lai_xe_doi_voi_thi_sinh_du_sat_hach_cac_hang",
+      "unit_count": 29,
+      "table_count": 6,
+      "table_row_count": 11,
+      "form_field_count": 4
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.mau_so_02_ban_xac_minh_giay_phep_lai_xe",
+      "attachment_slug": "mau_so_02_ban_xac_minh_giay_phep_lai_xe",
+      "attachment_kind": "form",
+      "classifier_confidence": 0.9,
+      "classifier_reason": "filename starts with Mau/DKX",
+      "label": "Mẫu số 02",
+      "title": "BẢN XÁC MINH GIẤY PHÉP LÁI XE KẾT QUẢ XÁC MINH",
+      "issued_with": null,
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 02. Ban xac minh giay phep lai xe.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\mau_so_02_ban_xac_minh_giay_phep_lai_xe",
+      "unit_count": 20,
+      "table_count": 2,
+      "table_row_count": 2,
+      "form_field_count": 12
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.mau_so_02_bao_cao_chi_tiet_ket_qua_ky_sat_hach_lai_xe",
+      "attachment_slug": "mau_so_02_bao_cao_chi_tiet_ket_qua_ky_sat_hach_lai_xe",
+      "attachment_kind": "form",
+      "classifier_confidence": 0.9,
+      "classifier_reason": "filename starts with Mau/DKX",
+      "label": "Mẫu số 02",
+      "title": "BÁO CÁO CHI TIẾT KẾT QUẢ KỲ SÁT HẠCH LÁI XE",
+      "issued_with": null,
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 02. Bao cao chi tiet ket qua ky sat hach lai xe.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\mau_so_02_bao_cao_chi_tiet_ket_qua_ky_sat_hach_lai_xe",
+      "unit_count": 20,
+      "table_count": 3,
+      "table_row_count": 4,
+      "form_field_count": 7
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.mau_so_02_bien_ban_tong_hop_ket_qua_sat_hach_lai_xe_doi_voi_thi_sinh_du_sat_hach_mo_to",
+      "attachment_slug": "mau_so_02_bien_ban_tong_hop_ket_qua_sat_hach_lai_xe_doi_voi_thi_sinh_du_sat_hach_mo_to",
+      "attachment_kind": "form",
+      "classifier_confidence": 0.9,
+      "classifier_reason": "filename starts with Mau/DKX",
+      "label": "Mẫu số 02",
+      "title": "BIÊN BẢN TỔNG HỢP KẾT QUẢ SÁT HẠCH LÁI XE MÔ TÔ",
+      "issued_with": null,
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 02. Bien ban tong hop ket qua sat hach lai xe doi voi thi sinh du sat hach mo to.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\mau_so_02_bien_ban_tong_hop_ket_qua_sat_hach_lai_xe_doi_voi_thi_sinh_du_sat_hach_mo_to",
+      "unit_count": 20,
+      "table_count": 4,
+      "table_row_count": 7,
+      "form_field_count": 4
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.mau_so_02_mau_bao_cao_de_nghi_to_chuc_sat_hach_lai_xe",
+      "attachment_slug": "mau_so_02_mau_bao_cao_de_nghi_to_chuc_sat_hach_lai_xe",
+      "attachment_kind": "form",
+      "classifier_confidence": 0.9,
+      "classifier_reason": "filename starts with Mau/DKX",
+      "label": "Mẫu số 02",
+      "title": "BÁO CÁO ĐỀ NGHỊ TỔ CHỨC SÁT HẠCH LÁI XE",
+      "issued_with": null,
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 02. Mau Bao cao de nghi to chuc sat hach lai xe.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\mau_so_02_mau_bao_cao_de_nghi_to_chuc_sat_hach_lai_xe",
+      "unit_count": 17,
+      "table_count": 3,
+      "table_row_count": 5,
+      "form_field_count": 5,
+      "parent_appendix_labels": [
+        "Phụ lục VIII"
+      ],
+      "parent_appendix_label": "Phụ lục VIII",
+      "parent_appendix_inferences": [
+        {
+          "appendix_label": "Phụ lục VIII",
+          "form_number_norm": "2",
+          "method": "main_body_reference_context",
+          "confidence": 0.8193,
+          "evidence_count": 1,
+          "evidence": [
+            {
+              "source_unit_id": "12_2025_tt_bca.dieu_16.khoan_1",
+              "source_path_text": "12/2025/TT-BCA > Chương II. SÁT HẠCH LÁI XE > Điều 16. Hồ sơ dự sát hạch lái xe > Khoản 1. Hồ sơ đề nghị sát hạch do cơ sở đào tạo lái xe nộp gồm: Báo cáo đề nghị tổ chức sát hạch theo mẫu 02 Phụ lục VIII kèm theo danh sách thí sinh đề nghị sát hạch để cấp giấy phép lái xe theo mẫu 03 Phụ lục VIII ban hành kèm theo Thông tư này và hồ sơ đề nghị sát hạch của cá nhân theo quy định tại điểm b, c, d khoản 2 Điều này.",
+              "text": "Hồ sơ đề nghị sát hạch do cơ sở đào tạo lái xe nộp gồm: Báo cáo đề nghị tổ chức sát hạch theo mẫu 02 Phụ lục VIII kèm theo danh sách thí sinh đề nghị sát hạch để cấp giấy phép lái xe theo mẫu 03 Phụ lục VIII ban hành kèm theo Thông tư này và hồ sơ đề nghị sát hạch của cá nhân theo quy định tạ"
+            }
+          ],
+          "alternatives": [
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_02_mau_bao_cao_de_nghi_to_chuc_sat_hach_lai_xe",
+              "title": "BÁO CÁO ĐỀ NGHỊ TỔ CHỨC SÁT HẠCH LÁI XE",
+              "score": 0.8193
+            },
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_02_bien_ban_tong_hop_ket_qua_sat_hach_lai_xe_doi_voi_thi_sinh_du_sat_hach_mo_to",
+              "title": "BIÊN BẢN TỔNG HỢP KẾT QUẢ SÁT HẠCH LÁI XE MÔ TÔ",
+              "score": 0.6848
+            },
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_02_bao_cao_chi_tiet_ket_qua_ky_sat_hach_lai_xe",
+              "title": "BÁO CÁO CHI TIẾT KẾT QUẢ KỲ SÁT HẠCH LÁI XE",
+              "score": 0.6546
+            },
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_02_ban_xac_minh_giay_phep_lai_xe",
+              "title": "BẢN XÁC MINH GIẤY PHÉP LÁI XE KẾT QUẢ XÁC MINH",
+              "score": 0.6317
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.mau_so_03_bao_cao_ket_qua_cac_ky_sat_hach_lai_xe",
+      "attachment_slug": "mau_so_03_bao_cao_ket_qua_cac_ky_sat_hach_lai_xe",
+      "attachment_kind": "form",
+      "classifier_confidence": 0.9,
+      "classifier_reason": "filename starts with Mau/DKX",
+      "label": "Mẫu số 03",
+      "title": "BÁO CÁO KẾT QUẢ CÁC KỲ SÁT HẠCH LÁI XE (Từ ngày… đến ngày…)",
+      "issued_with": null,
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 03. Bao cao ket qua cac ky sat hach lai xe.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\mau_so_03_bao_cao_ket_qua_cac_ky_sat_hach_lai_xe",
+      "unit_count": 12,
+      "table_count": 3,
+      "table_row_count": 4,
+      "form_field_count": 3
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.mau_so_03_mau_danh_sach_thi_sinh_du_sat_hach",
+      "attachment_slug": "mau_so_03_mau_danh_sach_thi_sinh_du_sat_hach",
+      "attachment_kind": "form",
+      "classifier_confidence": 0.9,
+      "classifier_reason": "filename starts with Mau/DKX",
+      "label": "Mẫu số 03",
+      "title": "Mau so 03. Mau Danh sach thi sinh du sat hach",
+      "issued_with": null,
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 03. Mau Danh sach thi sinh du sat hach.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\mau_so_03_mau_danh_sach_thi_sinh_du_sat_hach",
+      "unit_count": 15,
+      "table_count": 3,
+      "table_row_count": 6,
+      "form_field_count": 4,
+      "parent_appendix_labels": [
+        "Phụ lục VIII"
+      ],
+      "parent_appendix_label": "Phụ lục VIII",
+      "parent_appendix_inferences": [
+        {
+          "appendix_label": "Phụ lục VIII",
+          "form_number_norm": "3",
+          "method": "main_body_reference_context",
+          "confidence": 0.7879,
+          "evidence_count": 1,
+          "evidence": [
+            {
+              "source_unit_id": "12_2025_tt_bca.dieu_16.khoan_1",
+              "source_path_text": "12/2025/TT-BCA > Chương II. SÁT HẠCH LÁI XE > Điều 16. Hồ sơ dự sát hạch lái xe > Khoản 1. Hồ sơ đề nghị sát hạch do cơ sở đào tạo lái xe nộp gồm: Báo cáo đề nghị tổ chức sát hạch theo mẫu 02 Phụ lục VIII kèm theo danh sách thí sinh đề nghị sát hạch để cấp giấy phép lái xe theo mẫu 03 Phụ lục VIII ban hành kèm theo Thông tư này và hồ sơ đề nghị sát hạch của cá nhân theo quy định tại điểm b, c, d khoản 2 Điều này.",
+              "text": "nghị sát hạch do cơ sở đào tạo lái xe nộp gồm: Báo cáo đề nghị tổ chức sát hạch theo mẫu 02 Phụ lục VIII kèm theo danh sách thí sinh đề nghị sát hạch để cấp giấy phép lái xe theo mẫu 03 Phụ lục VIII ban hành kèm theo Thông tư này và hồ sơ đề nghị sát hạch của cá nhân theo quy định tại điểm b, c, d khoản 2 Điều này."
+            }
+          ],
+          "alternatives": [
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_03_mau_danh_sach_thi_sinh_du_sat_hach",
+              "title": "Mau so 03. Mau Danh sach thi sinh du sat hach",
+              "score": 0.7879
+            },
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_03_bao_cao_ket_qua_cac_ky_sat_hach_lai_xe",
+              "title": "BÁO CÁO KẾT QUẢ CÁC KỲ SÁT HẠCH LÁI XE (Từ ngày… đến ngày…)",
+              "score": 0.6861
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.mau_so_04_mau_quyet_dinh_to_chuc_ky_sat_hach",
+      "attachment_slug": "mau_so_04_mau_quyet_dinh_to_chuc_ky_sat_hach",
+      "attachment_kind": "form",
+      "classifier_confidence": 0.9,
+      "classifier_reason": "filename starts with Mau/DKX",
+      "label": "Mẫu số 04",
+      "title": "QUYẾT ĐỊNH: TỔ CHỨC KỲ SÁT HẠCH LÁI XE GIÁM ĐỐC CÔNG AN TỈNH ...",
+      "issued_with": null,
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 04. Mau Quyet dinh to chuc ky sat hach.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\mau_so_04_mau_quyet_dinh_to_chuc_ky_sat_hach",
+      "unit_count": 25,
+      "table_count": 2,
+      "table_row_count": 2,
+      "form_field_count": 12,
+      "parent_appendix_labels": [
+        "Phụ lục VIII"
+      ],
+      "parent_appendix_label": "Phụ lục VIII",
+      "parent_appendix_inferences": [
+        {
+          "appendix_label": "Phụ lục VIII",
+          "form_number_norm": "4",
+          "method": "main_body_reference_context",
+          "confidence": 0.92,
+          "evidence_count": 1,
+          "evidence": [
+            {
+              "source_unit_id": "12_2025_tt_bca.dieu_9.khoan_4",
+              "source_path_text": "12/2025/TT-BCA > Chương II. SÁT HẠCH LÁI XE > Điều 9. Chuẩn bị kỳ sát hạch > Khoản 4. Phòng Cảnh sát giao thông báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe theo quy định tại mẫu số 04 Phụ lục VIII kèm theo danh sách thí sinh dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 06 Phụ lục VIII, danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 05 Phụ lục VIII ban hành kèm theo Thông tư này.",
+              "text": "Phòng Cảnh sát giao thông báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe theo quy định tại mẫu số 04 Phụ lục VIII kèm theo danh sách thí sinh dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 06 Phụ lục VIII, danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch đ"
+            }
+          ],
+          "alternatives": [
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_04_mau_quyet_dinh_to_chuc_ky_sat_hach",
+              "title": "QUYẾT ĐỊNH: TỔ CHỨC KỲ SÁT HẠCH LÁI XE GIÁM ĐỐC CÔNG AN TỈNH ...",
+              "score": 0.92
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.mau_so_05_danh_sach_thi_sinh_co_giay_phep_lai_xe_qua_thoi_han_su_dung_du_sat_hac_dab3171b",
+      "attachment_slug": "mau_so_05_danh_sach_thi_sinh_co_giay_phep_lai_xe_qua_thoi_han_su_dung_du_sat_hac_dab3171b",
+      "attachment_kind": "form",
+      "classifier_confidence": 0.9,
+      "classifier_reason": "filename starts with Mau/DKX",
+      "label": "Mẫu số 05",
+      "title": "Danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe",
+      "issued_with": null,
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 05. Danh sach thi sinh co giay phep lai xe qua thoi han su dung du sat hach de cap lai GPLX.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\mau_so_05_danh_sach_thi_sinh_co_giay_phep_lai_xe_qua_thoi_han_su_dung_du_sat_hac_dab3171b",
+      "unit_count": 7,
+      "table_count": 1,
+      "table_row_count": 2,
+      "form_field_count": 1,
+      "parent_appendix_labels": [
+        "Phụ lục VIII"
+      ],
+      "parent_appendix_label": "Phụ lục VIII",
+      "parent_appendix_inferences": [
+        {
+          "appendix_label": "Phụ lục VIII",
+          "form_number_norm": "5",
+          "method": "main_body_reference_context",
+          "confidence": 0.94,
+          "evidence_count": 1,
+          "evidence": [
+            {
+              "source_unit_id": "12_2025_tt_bca.dieu_9.khoan_4",
+              "source_path_text": "12/2025/TT-BCA > Chương II. SÁT HẠCH LÁI XE > Điều 9. Chuẩn bị kỳ sát hạch > Khoản 4. Phòng Cảnh sát giao thông báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe theo quy định tại mẫu số 04 Phụ lục VIII kèm theo danh sách thí sinh dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 06 Phụ lục VIII, danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 05 Phụ lục VIII ban hành kèm theo Thông tư này.",
+              "text": "để cấp giấy phép lái xe theo quy định tại mẫu số 06 Phụ lục VIII, danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 05 Phụ lục VIII ban hành kèm theo Thông tư này."
+            }
+          ],
+          "alternatives": [
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_05_danh_sach_thi_sinh_co_giay_phep_lai_xe_qua_thoi_han_su_dung_du_sat_hac_dab3171b",
+              "title": "Danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe",
+              "score": 0.94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.mau_so_06_danh_sach_thi_sinh_du_sat_hach_de_cap_giay_phep_lai_xe",
+      "attachment_slug": "mau_so_06_danh_sach_thi_sinh_du_sat_hach_de_cap_giay_phep_lai_xe",
+      "attachment_kind": "form",
+      "classifier_confidence": 0.9,
+      "classifier_reason": "filename starts with Mau/DKX",
+      "label": "Mẫu số 06",
+      "title": "Danh sách thí sinh dự sát hạch để cấp giấy phép lái xe",
+      "issued_with": null,
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 06. Danh sach thi sinh du sat hach de cap giay phep lai xe.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\mau_so_06_danh_sach_thi_sinh_du_sat_hach_de_cap_giay_phep_lai_xe",
+      "unit_count": 8,
+      "table_count": 1,
+      "table_row_count": 3,
+      "form_field_count": 1,
+      "parent_appendix_labels": [
+        "Phụ lục VIII"
+      ],
+      "parent_appendix_label": "Phụ lục VIII",
+      "parent_appendix_inferences": [
+        {
+          "appendix_label": "Phụ lục VIII",
+          "form_number_norm": "6",
+          "method": "main_body_reference_context",
+          "confidence": 0.94,
+          "evidence_count": 1,
+          "evidence": [
+            {
+              "source_unit_id": "12_2025_tt_bca.dieu_9.khoan_4",
+              "source_path_text": "12/2025/TT-BCA > Chương II. SÁT HẠCH LÁI XE > Điều 9. Chuẩn bị kỳ sát hạch > Khoản 4. Phòng Cảnh sát giao thông báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe theo quy định tại mẫu số 04 Phụ lục VIII kèm theo danh sách thí sinh dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 06 Phụ lục VIII, danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 05 Phụ lục VIII ban hành kèm theo Thông tư này.",
+              "text": "cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe theo quy định tại mẫu số 04 Phụ lục VIII kèm theo danh sách thí sinh dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 06 Phụ lục VIII, danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 05 Phụ lục VIII ban hành kèm theo Thông tư này."
+            }
+          ],
+          "alternatives": [
+            {
+              "attachment_id": "12_2025_tt_bca.mau_so_06_danh_sach_thi_sinh_du_sat_hach_de_cap_giay_phep_lai_xe",
+              "title": "Danh sách thí sinh dự sát hạch để cấp giấy phép lái xe",
+              "score": 0.94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_i_de_nghi_sat_hach_de_cap_giay_phep_lai_xe",
+      "attachment_slug": "phu_luc_i_de_nghi_sat_hach_de_cap_giay_phep_lai_xe",
+      "attachment_kind": "appendix_structured",
+      "classifier_confidence": 0.78,
+      "classifier_reason": "filename starts with Phu luc",
+      "label": "Phụ lục I",
+      "title": "Tôi là:........................................................................................................................ Quốc tịch:…................................................................................................................ Ngày tháng năm sinh: ...............................................................................................",
+      "issued_with": "12/2025/TT-BCA",
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc I. De nghi sat hach de cap giay phep lai xe.docx",
+      "parser": "appendix_parser",
+      "parsed_dir": "attachments\\phu_luc_i_de_nghi_sat_hach_de_cap_giay_phep_lai_xe",
+      "unit_count": 13,
+      "table_count": 2,
+      "table_row_count": 2,
+      "form_field_count": 0
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_ii_quy_trinh_sat_hach_lai_xe_hang_a1_va_a",
+      "attachment_slug": "phu_luc_ii_quy_trinh_sat_hach_lai_xe_hang_a1_va_a",
+      "attachment_kind": "appendix_structured",
+      "classifier_confidence": 0.78,
+      "classifier_reason": "filename starts with Phu luc",
+      "label": "Phụ lục II",
+      "title": "QUY TRÌNH SÁT HẠCH LÁI XE HẠNG A1 VÀ A",
+      "issued_with": "12/2025/TT-BCA",
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc II. Quy trinh sat hach lai xe hang A1 va A.docx",
+      "parser": "appendix_parser",
+      "parsed_dir": "attachments\\phu_luc_ii_quy_trinh_sat_hach_lai_xe_hang_a1_va_a",
+      "unit_count": 135,
+      "table_count": 11,
+      "table_row_count": 30,
+      "form_field_count": 0
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_iii_quy_trinh_sat_hach_lai_xe_hang_b1",
+      "attachment_slug": "phu_luc_iii_quy_trinh_sat_hach_lai_xe_hang_b1",
+      "attachment_kind": "appendix_structured",
+      "classifier_confidence": 0.78,
+      "classifier_reason": "filename starts with Phu luc",
+      "label": "Phụ lục III",
+      "title": "QUY TRÌNH SÁT HẠCH LÁI XE HẠNG B1",
+      "issued_with": "12/2025/TT-BCA",
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc III. Quy trinh sat hach lai xe hang B1.docx",
+      "parser": "appendix_parser",
+      "parsed_dir": "attachments\\phu_luc_iii_quy_trinh_sat_hach_lai_xe_hang_b1",
+      "unit_count": 104,
+      "table_count": 10,
+      "table_row_count": 37,
+      "form_field_count": 0
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_iv_quy_trinh_sat_hach_lai_xe_cac_hang_b_c1_c_d1_d2_va_d",
+      "attachment_slug": "phu_luc_iv_quy_trinh_sat_hach_lai_xe_cac_hang_b_c1_c_d1_d2_va_d",
+      "attachment_kind": "appendix_structured",
+      "classifier_confidence": 0.78,
+      "classifier_reason": "filename starts with Phu luc",
+      "label": "Phụ lục IV",
+      "title": "QUY TRÌNH SÁT HẠCH LÁI XE CÁC HẠNG B, C1, C, D1, D2 VÀ D",
+      "issued_with": "12/2025/TT-BCA",
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc IV. Quy trinh sat hach lai xe cac hang B C1 C D1 D2 va D.docx",
+      "parser": "appendix_parser",
+      "parsed_dir": "attachments\\phu_luc_iv_quy_trinh_sat_hach_lai_xe_cac_hang_b_c1_c_d1_d2_va_d",
+      "unit_count": 282,
+      "table_count": 38,
+      "table_row_count": 99,
+      "form_field_count": 0
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_v_quy_trinh_sat_hach_hang_be_d1e_d2e_de",
+      "attachment_slug": "phu_luc_v_quy_trinh_sat_hach_hang_be_d1e_d2e_de",
+      "attachment_kind": "appendix_structured",
+      "classifier_confidence": 0.78,
+      "classifier_reason": "filename starts with Phu luc",
+      "label": "Phụ lục V",
+      "title": "QUY TRÌNH SÁT HẠCH HẠNG BE, D1E, D2E, DE",
+      "issued_with": "12/2025/TT-BCA",
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc V. Quy trinh sat hach hang BE D1E D2E DE.docx",
+      "parser": "appendix_parser",
+      "parsed_dir": "attachments\\phu_luc_v_quy_trinh_sat_hach_hang_be_d1e_d2e_de",
+      "unit_count": 230,
+      "table_count": 20,
+      "table_row_count": 79,
+      "form_field_count": 0
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_vi_quy_trinh_sat_hach_hang_c1e_ce",
+      "attachment_slug": "phu_luc_vi_quy_trinh_sat_hach_hang_c1e_ce",
+      "attachment_kind": "appendix_structured",
+      "classifier_confidence": 0.78,
+      "classifier_reason": "filename starts with Phu luc",
+      "label": "Phụ lục VI",
+      "title": "QUY TRÌNH SÁT HẠCH HẠNG C1E, CE",
+      "issued_with": "12/2025/TT-BCA",
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc VI. Quy trinh sat hach hang C1E CE.docx",
+      "parser": "appendix_parser",
+      "parsed_dir": "attachments\\phu_luc_vi_quy_trinh_sat_hach_hang_c1e_ce",
+      "unit_count": 241,
+      "table_count": 20,
+      "table_row_count": 81,
+      "form_field_count": 0
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_vii_nhiem_vu_quyen_han_cua_hoi_dong_sat_hach",
+      "attachment_slug": "phu_luc_vii_nhiem_vu_quyen_han_cua_hoi_dong_sat_hach",
+      "attachment_kind": "appendix_structured",
+      "classifier_confidence": 0.78,
+      "classifier_reason": "filename starts with Phu luc",
+      "label": "Phụ lục VII",
+      "title": "NHIỆM VỤ, QUYỀN HẠN CỦA HỘI ĐỒNG SÁT HẠCH",
+      "issued_with": "12/2025/TT-BCA",
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc VII. Nhiem vu quyen han cua hoi dong sat hach.docx",
+      "parser": "appendix_parser",
+      "parsed_dir": "attachments\\phu_luc_vii_nhiem_vu_quyen_han_cua_hoi_dong_sat_hach",
+      "unit_count": 181,
+      "table_count": 13,
+      "table_row_count": 28,
+      "form_field_count": 0
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_x_bieu_mau_giay_phep_lai_xe",
+      "attachment_slug": "phu_luc_x_bieu_mau_giay_phep_lai_xe",
+      "attachment_kind": "appendix_structured",
+      "classifier_confidence": 0.78,
+      "classifier_reason": "filename starts with Phu luc",
+      "label": "Phụ lục X",
+      "title": "BIỂU MẪU GIẤY PHÉP LÁI XE",
+      "issued_with": "12/2025/TT-BCA",
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc X. Bieu mau giay phep lai xe.docx",
+      "parser": "appendix_parser",
+      "parsed_dir": "attachments\\phu_luc_x_bieu_mau_giay_phep_lai_xe",
+      "unit_count": 38,
+      "table_count": 0,
+      "table_row_count": 0,
+      "form_field_count": 0
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_xii_de_nghi_doi_cap_lai_giay_phep_lai_xe",
+      "attachment_slug": "phu_luc_xii_de_nghi_doi_cap_lai_giay_phep_lai_xe",
+      "attachment_kind": "appendix_structured",
+      "classifier_confidence": 0.78,
+      "classifier_reason": "filename starts with Phu luc",
+      "label": "Phụ lục XII",
+      "title": "ĐỀ NGHỊ ĐỔI (CẤP LẠI) GIẤY PHÉP LÁI XE (*)",
+      "issued_with": "12/2025/TT-BCA",
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc XII. De nghi doi cap lai giay phep lai xe.docx",
+      "parser": "appendix_parser",
+      "parsed_dir": "attachments\\phu_luc_xii_de_nghi_doi_cap_lai_giay_phep_lai_xe",
+      "unit_count": 16,
+      "table_count": 1,
+      "table_row_count": 1,
+      "form_field_count": 0
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_xiii_de_nghi_doi_giay_phep_lai_xe",
+      "attachment_slug": "phu_luc_xiii_de_nghi_doi_giay_phep_lai_xe",
+      "attachment_kind": "appendix_form",
+      "classifier_confidence": 0.86,
+      "classifier_reason": "appendix with form-like fields",
+      "label": "Phụ lục XIII",
+      "title": "ĐỀ NGHỊ ĐỔI GIẤY PHÉP LÁI XE/APPLICATION FORM FOR RE-ISSUANCE OF DRIVER’S LICENCE",
+      "issued_with": "12/2025/TT-BCA",
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc XIII. De nghi doi giay phep lai xe.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\phu_luc_xiii_de_nghi_doi_giay_phep_lai_xe",
+      "unit_count": 21,
+      "table_count": 1,
+      "table_row_count": 1,
+      "form_field_count": 12
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_xiv",
+      "attachment_slug": "phu_luc_xiv",
+      "attachment_kind": "appendix_form",
+      "classifier_confidence": 0.86,
+      "classifier_reason": "appendix with form-like fields",
+      "label": "Phụ lục XIV",
+      "title": "TRANG SỐ 1 TRANG SỐ 2 TRANG SỐ 3 TRANG SỐ 5 TRANG SỐ 6 TRANG SỐ 7 TRANG SỐ 8 TRANG SỐ 9",
+      "issued_with": "12/2025/TT-BCA",
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc XIV.docx",
+      "parser": "form_parser",
+      "parsed_dir": "attachments\\phu_luc_xiv",
+      "unit_count": 24,
+      "table_count": 0,
+      "table_row_count": 0,
+      "form_field_count": 0
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_xv_bang_chuyen_doi_giay_phep_lai_xe_quoc_te",
+      "attachment_slug": "phu_luc_xv_bang_chuyen_doi_giay_phep_lai_xe_quoc_te",
+      "attachment_kind": "appendix_structured",
+      "classifier_confidence": 0.78,
+      "classifier_reason": "filename starts with Phu luc",
+      "label": "Phụ lục XV",
+      "title": "BẢNG CHUYỂN ĐỔI GIẤY PHÉP LÁI XE QUỐC TẾ",
+      "issued_with": "12/2025/TT-BCA",
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc XV. Bang chuyen doi giay phep lai xe quoc te.docx",
+      "parser": "appendix_parser",
+      "parsed_dir": "attachments\\phu_luc_xv_bang_chuyen_doi_giay_phep_lai_xe_quoc_te",
+      "unit_count": 15,
+      "table_count": 1,
+      "table_row_count": 12,
+      "form_field_count": 0
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_xvi_mau_de_nghi_cap_giay_phep_lai_xe_quoc_te",
+      "attachment_slug": "phu_luc_xvi_mau_de_nghi_cap_giay_phep_lai_xe_quoc_te",
+      "attachment_kind": "appendix_structured",
+      "classifier_confidence": 0.78,
+      "classifier_reason": "filename starts with Phu luc",
+      "label": "Phụ lục XVI",
+      "title": "MẪU ĐỀ NGHỊ CẤP GIẤY PHÉP LÁI XE QUỐC TẾ APPLICATION FORM FOR ISSUANCE OF INTERNATIONAL DRIVING PERMIT",
+      "issued_with": "12/2025/TT-BCA",
+      "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc XVI. Mau de nghi cap giay phep lai xe quoc te.docx",
+      "parser": "appendix_parser",
+      "parsed_dir": "attachments\\phu_luc_xvi_mau_de_nghi_cap_giay_phep_lai_xe_quoc_te",
+      "unit_count": 13,
+      "table_count": 3,
+      "table_row_count": 9,
+      "form_field_count": 0
+    }
+  ],
+  "converted_files": [],
+  "unsupported_files": [],
+  "inferred_appendix_groups": [
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_viii",
+      "attachment_slug": "phu_luc_viii",
+      "attachment_kind": "inferred_appendix_group",
+      "label": "Phụ lục VIII",
+      "title": "Phụ lục VIII (inferred form group)",
+      "source_file": null,
+      "parser": "appendix_form_linker",
+      "parsed_dir": null,
+      "child_attachment_ids": [
+        "12_2025_tt_bca.mau_so_01_bien_ban_kiem_tra_ho_so_va_dieu_kien_du_thi_cua_thi_sinh_du_sat_hach",
+        "12_2025_tt_bca.mau_so_02_mau_bao_cao_de_nghi_to_chuc_sat_hach_lai_xe",
+        "12_2025_tt_bca.mau_so_03_mau_danh_sach_thi_sinh_du_sat_hach",
+        "12_2025_tt_bca.mau_so_04_mau_quyet_dinh_to_chuc_ky_sat_hach",
+        "12_2025_tt_bca.mau_so_05_danh_sach_thi_sinh_co_giay_phep_lai_xe_qua_thoi_han_su_dung_du_sat_hac_dab3171b",
+        "12_2025_tt_bca.mau_so_06_danh_sach_thi_sinh_du_sat_hach_de_cap_giay_phep_lai_xe"
+      ],
+      "child_count": 6,
+      "inference_method": "main_body_reference_context",
+      "inference_confidence": 0.7879
+    },
+    {
+      "package_id": "12_2025_TTBCA",
+      "document_id": "12_2025_tt_bca",
+      "document_number": "12/2025/TT-BCA",
+      "attachment_id": "12_2025_tt_bca.phu_luc_xi",
+      "attachment_slug": "phu_luc_xi",
+      "attachment_kind": "inferred_appendix_group",
+      "label": "Phụ lục XI",
+      "title": "Phụ lục XI (inferred form group)",
+      "source_file": null,
+      "parser": "appendix_form_linker",
+      "parsed_dir": null,
+      "child_attachment_ids": [
+        "12_2025_tt_bca.mau_so_01_ban_de_nghi_xac_minh_giay_phep_lai_xe"
+      ],
+      "child_count": 1,
+      "inference_method": "main_body_reference_context",
+      "inference_confidence": 0.94
+    }
+  ],
+  "appendix_form_linking": {
+    "method": "main_body_reference_context",
+    "total_pairs": 7,
+    "linked_pairs": 7,
+    "unresolved_pairs": 0,
+    "decisions": [
+      {
+        "appendix_label": "Phụ lục VIII",
+        "form_number_norm": "1",
+        "status": "linked",
+        "selected_attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_kiem_tra_ho_so_va_dieu_kien_du_thi_cua_thi_sinh_du_sat_hach",
+        "selected_title": "BIÊN BẢN KIỂM TRA HỒ SƠ VÀ ĐIỀU KIỆN DỰ THI CỦA THÍ SINH DỰ SÁT HẠCH LÁI XE",
+        "confidence": 0.8178,
+        "evidence_count": 1,
+        "evidence": [
+          {
+            "source_unit_id": "12_2025_tt_bca.dieu_9.khoan_2.diem_a",
+            "source_path_text": "12/2025/TT-BCA > Chương II. SÁT HẠCH LÁI XE > Điều 9. Chuẩn bị kỳ sát hạch > Khoản 2. Kiểm tra hồ sơ > Điểm a. Khi tiếp nhận hồ sơ đề nghị sát hạch cấp giấy phép lái xe, Phòng Cảnh sát giao thông kiểm tra, đối chiếu điều kiện của người dự sát hạch theo quy định tại Điều 15 và Điều 16 Thông tư này; duyệt hồ sơ thí sinh dự sát hạch, lập biên bản kiểm tra hồ sơ theo quy định tại mẫu số 01 Phụ lục VIII ban hành kèm theo Thông tư này và thông báo thời gian, địa điểm tổ chức kỳ sát hạch cho người nộp hồ sơ; báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe; đối với hồ sơ không hợp lệ thì thông báo và hướng dẫn người nộp hồ sơ hoàn thiện theo quy định;",
+            "text": "m tra, đối chiếu điều kiện của người dự sát hạch theo quy định tại Điều 15 và Điều 16 Thông tư này; duyệt hồ sơ thí sinh dự sát hạch, lập biên bản kiểm tra hồ sơ theo quy định tại mẫu số 01 Phụ lục VIII ban hành kèm theo Thông tư này và thông báo thời gian, địa điểm tổ chức kỳ sát hạch cho người nộp hồ sơ; báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch"
+          }
+        ],
+        "alternatives": [
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_kiem_tra_ho_so_va_dieu_kien_du_thi_cua_thi_sinh_du_sat_hach",
+            "title": "BIÊN BẢN KIỂM TRA HỒ SƠ VÀ ĐIỀU KIỆN DỰ THI CỦA THÍ SINH DỰ SÁT HẠCH LÁI XE",
+            "score": 0.8178
+          },
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_01_ban_de_nghi_xac_minh_giay_phep_lai_xe",
+            "title": "BẢN ĐỀ NGHỊ XÁC MINH GIẤY PHÉP LÁI XE",
+            "score": 0.7205
+          },
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_tong_hop_ket_qua_sat_hach_lai_xe_doi_voi_thi_sinh_du_sat_hach_cac_hang",
+            "title": "BIÊN BẢN TỔNG HỢP KẾT QUẢ SÁT HẠCH LÁI XE HẠNG B1 VÀ Ô TÔ",
+            "score": 0.7118
+          },
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_01_bao_cao_chung_ket_qua_ky_sat_hach_lai_xe",
+            "title": "BÁO CÁO CHUNG KẾT QUẢ KỲ SÁT HẠCH LÁI XE",
+            "score": 0.7108
+          },
+          {
+            "attachment_id": "12_2025_tt_bca.phu_luc_xiv",
+            "title": "TRANG SỐ 1 TRANG SỐ 2 TRANG SỐ 3 TRANG SỐ 5 TRANG SỐ 6 TRANG SỐ 7 TRANG SỐ 8 TRANG SỐ 9",
+            "score": 0.4709
+          }
+        ]
+      },
+      {
+        "appendix_label": "Phụ lục VIII",
+        "form_number_norm": "2",
+        "status": "linked",
+        "selected_attachment_id": "12_2025_tt_bca.mau_so_02_mau_bao_cao_de_nghi_to_chuc_sat_hach_lai_xe",
+        "selected_title": "BÁO CÁO ĐỀ NGHỊ TỔ CHỨC SÁT HẠCH LÁI XE",
+        "confidence": 0.8193,
+        "evidence_count": 1,
+        "evidence": [
+          {
+            "source_unit_id": "12_2025_tt_bca.dieu_16.khoan_1",
+            "source_path_text": "12/2025/TT-BCA > Chương II. SÁT HẠCH LÁI XE > Điều 16. Hồ sơ dự sát hạch lái xe > Khoản 1. Hồ sơ đề nghị sát hạch do cơ sở đào tạo lái xe nộp gồm: Báo cáo đề nghị tổ chức sát hạch theo mẫu 02 Phụ lục VIII kèm theo danh sách thí sinh đề nghị sát hạch để cấp giấy phép lái xe theo mẫu 03 Phụ lục VIII ban hành kèm theo Thông tư này và hồ sơ đề nghị sát hạch của cá nhân theo quy định tại điểm b, c, d khoản 2 Điều này.",
+            "text": "Hồ sơ đề nghị sát hạch do cơ sở đào tạo lái xe nộp gồm: Báo cáo đề nghị tổ chức sát hạch theo mẫu 02 Phụ lục VIII kèm theo danh sách thí sinh đề nghị sát hạch để cấp giấy phép lái xe theo mẫu 03 Phụ lục VIII ban hành kèm theo Thông tư này và hồ sơ đề nghị sát hạch của cá nhân theo quy định tạ"
+          }
+        ],
+        "alternatives": [
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_02_mau_bao_cao_de_nghi_to_chuc_sat_hach_lai_xe",
+            "title": "BÁO CÁO ĐỀ NGHỊ TỔ CHỨC SÁT HẠCH LÁI XE",
+            "score": 0.8193
+          },
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_02_bien_ban_tong_hop_ket_qua_sat_hach_lai_xe_doi_voi_thi_sinh_du_sat_hach_mo_to",
+            "title": "BIÊN BẢN TỔNG HỢP KẾT QUẢ SÁT HẠCH LÁI XE MÔ TÔ",
+            "score": 0.6848
+          },
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_02_bao_cao_chi_tiet_ket_qua_ky_sat_hach_lai_xe",
+            "title": "BÁO CÁO CHI TIẾT KẾT QUẢ KỲ SÁT HẠCH LÁI XE",
+            "score": 0.6546
+          },
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_02_ban_xac_minh_giay_phep_lai_xe",
+            "title": "BẢN XÁC MINH GIẤY PHÉP LÁI XE KẾT QUẢ XÁC MINH",
+            "score": 0.6317
+          }
+        ]
+      },
+      {
+        "appendix_label": "Phụ lục VIII",
+        "form_number_norm": "3",
+        "status": "linked",
+        "selected_attachment_id": "12_2025_tt_bca.mau_so_03_mau_danh_sach_thi_sinh_du_sat_hach",
+        "selected_title": "Mau so 03. Mau Danh sach thi sinh du sat hach",
+        "confidence": 0.7879,
+        "evidence_count": 1,
+        "evidence": [
+          {
+            "source_unit_id": "12_2025_tt_bca.dieu_16.khoan_1",
+            "source_path_text": "12/2025/TT-BCA > Chương II. SÁT HẠCH LÁI XE > Điều 16. Hồ sơ dự sát hạch lái xe > Khoản 1. Hồ sơ đề nghị sát hạch do cơ sở đào tạo lái xe nộp gồm: Báo cáo đề nghị tổ chức sát hạch theo mẫu 02 Phụ lục VIII kèm theo danh sách thí sinh đề nghị sát hạch để cấp giấy phép lái xe theo mẫu 03 Phụ lục VIII ban hành kèm theo Thông tư này và hồ sơ đề nghị sát hạch của cá nhân theo quy định tại điểm b, c, d khoản 2 Điều này.",
+            "text": "nghị sát hạch do cơ sở đào tạo lái xe nộp gồm: Báo cáo đề nghị tổ chức sát hạch theo mẫu 02 Phụ lục VIII kèm theo danh sách thí sinh đề nghị sát hạch để cấp giấy phép lái xe theo mẫu 03 Phụ lục VIII ban hành kèm theo Thông tư này và hồ sơ đề nghị sát hạch của cá nhân theo quy định tại điểm b, c, d khoản 2 Điều này."
+          }
+        ],
+        "alternatives": [
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_03_mau_danh_sach_thi_sinh_du_sat_hach",
+            "title": "Mau so 03. Mau Danh sach thi sinh du sat hach",
+            "score": 0.7879
+          },
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_03_bao_cao_ket_qua_cac_ky_sat_hach_lai_xe",
+            "title": "BÁO CÁO KẾT QUẢ CÁC KỲ SÁT HẠCH LÁI XE (Từ ngày… đến ngày…)",
+            "score": 0.6861
+          }
+        ]
+      },
+      {
+        "appendix_label": "Phụ lục VIII",
+        "form_number_norm": "4",
+        "status": "linked",
+        "selected_attachment_id": "12_2025_tt_bca.mau_so_04_mau_quyet_dinh_to_chuc_ky_sat_hach",
+        "selected_title": "QUYẾT ĐỊNH: TỔ CHỨC KỲ SÁT HẠCH LÁI XE GIÁM ĐỐC CÔNG AN TỈNH ...",
+        "confidence": 0.92,
+        "evidence_count": 1,
+        "evidence": [
+          {
+            "source_unit_id": "12_2025_tt_bca.dieu_9.khoan_4",
+            "source_path_text": "12/2025/TT-BCA > Chương II. SÁT HẠCH LÁI XE > Điều 9. Chuẩn bị kỳ sát hạch > Khoản 4. Phòng Cảnh sát giao thông báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe theo quy định tại mẫu số 04 Phụ lục VIII kèm theo danh sách thí sinh dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 06 Phụ lục VIII, danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 05 Phụ lục VIII ban hành kèm theo Thông tư này.",
+            "text": "Phòng Cảnh sát giao thông báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe theo quy định tại mẫu số 04 Phụ lục VIII kèm theo danh sách thí sinh dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 06 Phụ lục VIII, danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch đ"
+          }
+        ],
+        "alternatives": [
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_04_mau_quyet_dinh_to_chuc_ky_sat_hach",
+            "title": "QUYẾT ĐỊNH: TỔ CHỨC KỲ SÁT HẠCH LÁI XE GIÁM ĐỐC CÔNG AN TỈNH ...",
+            "score": 0.92
+          }
+        ]
+      },
+      {
+        "appendix_label": "Phụ lục VIII",
+        "form_number_norm": "5",
+        "status": "linked",
+        "selected_attachment_id": "12_2025_tt_bca.mau_so_05_danh_sach_thi_sinh_co_giay_phep_lai_xe_qua_thoi_han_su_dung_du_sat_hac_dab3171b",
+        "selected_title": "Danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe",
+        "confidence": 0.94,
+        "evidence_count": 1,
+        "evidence": [
+          {
+            "source_unit_id": "12_2025_tt_bca.dieu_9.khoan_4",
+            "source_path_text": "12/2025/TT-BCA > Chương II. SÁT HẠCH LÁI XE > Điều 9. Chuẩn bị kỳ sát hạch > Khoản 4. Phòng Cảnh sát giao thông báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe theo quy định tại mẫu số 04 Phụ lục VIII kèm theo danh sách thí sinh dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 06 Phụ lục VIII, danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 05 Phụ lục VIII ban hành kèm theo Thông tư này.",
+            "text": "để cấp giấy phép lái xe theo quy định tại mẫu số 06 Phụ lục VIII, danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 05 Phụ lục VIII ban hành kèm theo Thông tư này."
+          }
+        ],
+        "alternatives": [
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_05_danh_sach_thi_sinh_co_giay_phep_lai_xe_qua_thoi_han_su_dung_du_sat_hac_dab3171b",
+            "title": "Danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe",
+            "score": 0.94
+          }
+        ]
+      },
+      {
+        "appendix_label": "Phụ lục VIII",
+        "form_number_norm": "6",
+        "status": "linked",
+        "selected_attachment_id": "12_2025_tt_bca.mau_so_06_danh_sach_thi_sinh_du_sat_hach_de_cap_giay_phep_lai_xe",
+        "selected_title": "Danh sách thí sinh dự sát hạch để cấp giấy phép lái xe",
+        "confidence": 0.94,
+        "evidence_count": 1,
+        "evidence": [
+          {
+            "source_unit_id": "12_2025_tt_bca.dieu_9.khoan_4",
+            "source_path_text": "12/2025/TT-BCA > Chương II. SÁT HẠCH LÁI XE > Điều 9. Chuẩn bị kỳ sát hạch > Khoản 4. Phòng Cảnh sát giao thông báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe theo quy định tại mẫu số 04 Phụ lục VIII kèm theo danh sách thí sinh dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 06 Phụ lục VIII, danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 05 Phụ lục VIII ban hành kèm theo Thông tư này.",
+            "text": "cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe theo quy định tại mẫu số 04 Phụ lục VIII kèm theo danh sách thí sinh dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 06 Phụ lục VIII, danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 05 Phụ lục VIII ban hành kèm theo Thông tư này."
+          }
+        ],
+        "alternatives": [
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_06_danh_sach_thi_sinh_du_sat_hach_de_cap_giay_phep_lai_xe",
+            "title": "Danh sách thí sinh dự sát hạch để cấp giấy phép lái xe",
+            "score": 0.94
+          }
+        ]
+      },
+      {
+        "appendix_label": "Phụ lục XI",
+        "form_number_norm": "1",
+        "status": "linked",
+        "selected_attachment_id": "12_2025_tt_bca.mau_so_01_ban_de_nghi_xac_minh_giay_phep_lai_xe",
+        "selected_title": "BẢN ĐỀ NGHỊ XÁC MINH GIẤY PHÉP LÁI XE",
+        "confidence": 0.94,
+        "evidence_count": 3,
+        "evidence": [
+          {
+            "source_unit_id": "12_2025_tt_bca.dieu_21.khoan_3.diem_b",
+            "source_path_text": "12/2025/TT-BCA > Chương III. CẤP, ĐỔI, CẤP LẠI, THU HỒI GIẤY PHÉP LÁI XE > Điều 21. Đổi giấy phép lái xe > Khoản 3. Trình tự thực hiện > Điểm b. Phòng Cảnh sát giao thông hoặc Công an cấp xã nơi được bố trí điểm tiếp nhận kiểm tra hồ sơ khi tiếp nhận và tra cứu thông tin về giấy phép lái xe từ hệ thống thông tin giấy phép lái xe, trường hợp chưa có thông tin phải có văn bản đề nghị xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này (khi chưa có kết quả xác minh giấy phép lái xe thì chưa giải quyết đề nghị); tra cứu phần mềm cơ sở dữ liệu về trật tự, an toàn giao thông đường bộ hoặc tra cứu vi phạm của người lái xe thông qua tài khoản định danh điện tử.",
+            "text": "ếp nhận và tra cứu thông tin về giấy phép lái xe từ hệ thống thông tin giấy phép lái xe, trường hợp chưa có thông tin phải có văn bản đề nghị xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này (khi chưa có kết quả xác minh giấy phép lái xe thì chưa giải quyết đề nghị); tra cứu phần mềm cơ sở dữ liệu về trật tự, an toàn giao thông đường bộ"
+          },
+          {
+            "source_unit_id": "12_2025_tt_bca.dieu_22.khoan_3.diem_b",
+            "source_path_text": "12/2025/TT-BCA > Chương III. CẤP, ĐỔI, CẤP LẠI, THU HỒI GIẤY PHÉP LÁI XE > Điều 22. Đổi giấy phép lái xe quân sự do Bộ Quốc phòng cấp > Khoản 3. Trình tự thực hiện > Điểm b. Phòng Cảnh sát giao thông hoặc Công an cấp xã nơi bố trí điểm tiếp nhận kiểm tra hồ sơ khi tiếp nhận, tra cứu phần mềm cơ sở dữ liệu về trật tự, an toàn giao thông đường bộ hoặc tra cứu vi phạm của người lái xe thông qua tài khoản định danh điện tử. Trường hợp phát hiện có nghi vấn, Phòng Cảnh sát giao thông có văn bản đề nghị đơn vị chức năng thuộc Bộ Quốc phòng xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này. Khi chưa có kết quả xác minh giấy phép lái xe hoặc có kết quả xác minh giấy phép lái xe không do Bộ Quốc phòng cấp thì không đổi giấy phép lái xe.",
+            "text": "khoản định danh điện tử. Trường hợp phát hiện có nghi vấn, Phòng Cảnh sát giao thông có văn bản đề nghị đơn vị chức năng thuộc Bộ Quốc phòng xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này. Khi chưa có kết quả xác minh giấy phép lái xe hoặc có kết quả xác minh giấy phép lái xe không do Bộ Quốc phòng cấp thì không đổi giấy phép lái xe."
+          },
+          {
+            "source_unit_id": "12_2025_tt_bca.dieu_23.khoan_3.diem_b",
+            "source_path_text": "12/2025/TT-BCA > Chương III. CẤP, ĐỔI, CẤP LẠI, THU HỒI GIẤY PHÉP LÁI XE > Điều 23. Đổi giấy phép lái xe trong Công an nhân dân > Khoản 3. Trình tự thực hiện > Điểm b. Phòng Cảnh sát giao thông hoặc Công an cấp xã nơi được bố trí điểm tiếp nhận kiểm tra hồ sơ khi tiếp nhận và tra cứu phần mềm cơ sở dữ liệu về trật tự, an toàn giao thông đường bộ hoặc tra cứu vi phạm của người lái xe thông qua tài khoản định danh điện tử. Trường hợp phát hiện có nghi vấn, Phòng Cảnh sát giao thông có văn bản đề nghị đơn vị cấp giấy phép lái xe xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này, khi chưa có kết quả xác minh giấy phép lái xe thì chưa đổi giấy phép lái xe.",
+            "text": "g qua tài khoản định danh điện tử. Trường hợp phát hiện có nghi vấn, Phòng Cảnh sát giao thông có văn bản đề nghị đơn vị cấp giấy phép lái xe xác minh giấy phép lái xe đã cấp theo mẫu số 01 Phụ lục XI ban hành kèm theo Thông tư này, khi chưa có kết quả xác minh giấy phép lái xe thì chưa đổi giấy phép lái xe."
+          }
+        ],
+        "alternatives": [
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_01_ban_de_nghi_xac_minh_giay_phep_lai_xe",
+            "title": "BẢN ĐỀ NGHỊ XÁC MINH GIẤY PHÉP LÁI XE",
+            "score": 0.94
+          },
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_kiem_tra_ho_so_va_dieu_kien_du_thi_cua_thi_sinh_du_sat_hach",
+            "title": "BIÊN BẢN KIỂM TRA HỒ SƠ VÀ ĐIỀU KIỆN DỰ THI CỦA THÍ SINH DỰ SÁT HẠCH LÁI XE",
+            "score": 0.7122
+          },
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_tong_hop_ket_qua_sat_hach_lai_xe_doi_voi_thi_sinh_du_sat_hach_cac_hang",
+            "title": "BIÊN BẢN TỔNG HỢP KẾT QUẢ SÁT HẠCH LÁI XE HẠNG B1 VÀ Ô TÔ",
+            "score": 0.667
+          },
+          {
+            "attachment_id": "12_2025_tt_bca.mau_so_01_bao_cao_chung_ket_qua_ky_sat_hach_lai_xe",
+            "title": "BÁO CÁO CHUNG KẾT QUẢ KỲ SÁT HẠCH LÁI XE",
+            "score": 0.6455
+          },
+          {
+            "attachment_id": "12_2025_tt_bca.phu_luc_xiv",
+            "title": "TRANG SỐ 1 TRANG SỐ 2 TRANG SỐ 3 TRANG SỐ 5 TRANG SỐ 6 TRANG SỐ 7 TRANG SỐ 8 TRANG SỐ 9",
+            "score": 0.4844
+          }
+        ]
+      }
+    ]
+  }
+}

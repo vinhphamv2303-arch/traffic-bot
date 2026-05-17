@@ -1,0 +1,20 @@
+{
+  "package_id": "12_2025_TTBCA",
+  "document_id": "12_2025_tt_bca",
+  "document_number": "12/2025/TT-BCA",
+  "attachment_id": "12_2025_tt_bca.mau_so_02_ban_xac_minh_giay_phep_lai_xe",
+  "attachment_slug": "mau_so_02_ban_xac_minh_giay_phep_lai_xe",
+  "attachment_kind": "form",
+  "classifier_confidence": 0.9,
+  "classifier_reason": "filename starts with Mau/DKX",
+  "label": "Mẫu số 02",
+  "title": "BẢN XÁC MINH GIẤY PHÉP LÁI XE KẾT QUẢ XÁC MINH",
+  "issued_with": null,
+  "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 02. Ban xac minh giay phep lai xe.docx",
+  "parser": "form_parser",
+  "parsed_dir": "attachments\\mau_so_02_ban_xac_minh_giay_phep_lai_xe",
+  "unit_count": 20,
+  "table_count": 2,
+  "table_row_count": 2,
+  "form_field_count": 12
+}

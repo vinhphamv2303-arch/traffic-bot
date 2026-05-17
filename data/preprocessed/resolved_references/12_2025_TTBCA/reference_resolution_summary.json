@@ -1,0 +1,21 @@
+{
+  "total": 206,
+  "resolved": 178,
+  "ambiguous": 6,
+  "unresolved": 22,
+  "non_reference": 0,
+  "by_status": {
+    "resolved": 178,
+    "input_inconsistent": 17,
+    "unresolved_missing_attachment": 3,
+    "unresolved": 2,
+    "ambiguous": 6
+  },
+  "by_mention_type": {
+    "clause": 59,
+    "article": 54,
+    "point": 27,
+    "appendix": 37,
+    "form": 29
+  }
+}

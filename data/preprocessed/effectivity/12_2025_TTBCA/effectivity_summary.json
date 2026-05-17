@@ -1,0 +1,7 @@
+{
+  "source_units": "..\\data\\preprocessed\\parsed\\12_2025_TTBCA\\main\\units.jsonl",
+  "event_count": 1,
+  "events_by_type": {
+    "effective_from": 1
+  }
+}

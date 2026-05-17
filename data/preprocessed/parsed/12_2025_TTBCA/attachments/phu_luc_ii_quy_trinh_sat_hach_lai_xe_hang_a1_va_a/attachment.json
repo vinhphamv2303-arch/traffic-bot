@@ -1,0 +1,20 @@
+{
+  "package_id": "12_2025_TTBCA",
+  "document_id": "12_2025_tt_bca",
+  "document_number": "12/2025/TT-BCA",
+  "attachment_id": "12_2025_tt_bca.phu_luc_ii_quy_trinh_sat_hach_lai_xe_hang_a1_va_a",
+  "attachment_slug": "phu_luc_ii_quy_trinh_sat_hach_lai_xe_hang_a1_va_a",
+  "attachment_kind": "appendix_structured",
+  "classifier_confidence": 0.78,
+  "classifier_reason": "filename starts with Phu luc",
+  "label": "Phụ lục II",
+  "title": "QUY TRÌNH SÁT HẠCH LÁI XE HẠNG A1 VÀ A",
+  "issued_with": "12/2025/TT-BCA",
+  "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc II. Quy trinh sat hach lai xe hang A1 va A.docx",
+  "parser": "appendix_parser",
+  "parsed_dir": "attachments\\phu_luc_ii_quy_trinh_sat_hach_lai_xe_hang_a1_va_a",
+  "unit_count": 135,
+  "table_count": 11,
+  "table_row_count": 30,
+  "form_field_count": 0
+}

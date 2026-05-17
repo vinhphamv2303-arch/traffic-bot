@@ -1,0 +1,67 @@
+{
+  "package_id": "12_2025_TTBCA",
+  "document_id": "12_2025_tt_bca",
+  "document_number": "12/2025/TT-BCA",
+  "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_kiem_tra_ho_so_va_dieu_kien_du_thi_cua_thi_sinh_du_sat_hach",
+  "attachment_slug": "mau_so_01_bien_ban_kiem_tra_ho_so_va_dieu_kien_du_thi_cua_thi_sinh_du_sat_hach",
+  "attachment_kind": "form",
+  "classifier_confidence": 0.9,
+  "classifier_reason": "filename starts with Mau/DKX",
+  "label": "Mẫu số 01",
+  "title": "BIÊN BẢN KIỂM TRA HỒ SƠ VÀ ĐIỀU KIỆN DỰ THI CỦA THÍ SINH DỰ SÁT HẠCH LÁI XE",
+  "issued_with": null,
+  "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 01. Bien ban kiem tra ho so va dieu kien du thi cua thi sinh du sat hach.docx",
+  "parser": "form_parser",
+  "parsed_dir": "attachments\\mau_so_01_bien_ban_kiem_tra_ho_so_va_dieu_kien_du_thi_cua_thi_sinh_du_sat_hach",
+  "unit_count": 33,
+  "table_count": 3,
+  "table_row_count": 12,
+  "form_field_count": 5,
+  "parent_appendix_labels": [
+    "Phụ lục VIII"
+  ],
+  "parent_appendix_label": "Phụ lục VIII",
+  "parent_appendix_inferences": [
+    {
+      "appendix_label": "Phụ lục VIII",
+      "form_number_norm": "1",
+      "method": "main_body_reference_context",
+      "confidence": 0.8178,
+      "evidence_count": 1,
+      "evidence": [
+        {
+          "source_unit_id": "12_2025_tt_bca.dieu_9.khoan_2.diem_a",
+          "source_path_text": "12/2025/TT-BCA > Chương II. SÁT HẠCH LÁI XE > Điều 9. Chuẩn bị kỳ sát hạch > Khoản 2. Kiểm tra hồ sơ > Điểm a. Khi tiếp nhận hồ sơ đề nghị sát hạch cấp giấy phép lái xe, Phòng Cảnh sát giao thông kiểm tra, đối chiếu điều kiện của người dự sát hạch theo quy định tại Điều 15 và Điều 16 Thông tư này; duyệt hồ sơ thí sinh dự sát hạch, lập biên bản kiểm tra hồ sơ theo quy định tại mẫu số 01 Phụ lục VIII ban hành kèm theo Thông tư này và thông báo thời gian, địa điểm tổ chức kỳ sát hạch cho người nộp hồ sơ; báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe; đối với hồ sơ không hợp lệ thì thông báo và hướng dẫn người nộp hồ sơ hoàn thiện theo quy định;",
+          "text": "m tra, đối chiếu điều kiện của người dự sát hạch theo quy định tại Điều 15 và Điều 16 Thông tư này; duyệt hồ sơ thí sinh dự sát hạch, lập biên bản kiểm tra hồ sơ theo quy định tại mẫu số 01 Phụ lục VIII ban hành kèm theo Thông tư này và thông báo thời gian, địa điểm tổ chức kỳ sát hạch cho người nộp hồ sơ; báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch"
+        }
+      ],
+      "alternatives": [
+        {
+          "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_kiem_tra_ho_so_va_dieu_kien_du_thi_cua_thi_sinh_du_sat_hach",
+          "title": "BIÊN BẢN KIỂM TRA HỒ SƠ VÀ ĐIỀU KIỆN DỰ THI CỦA THÍ SINH DỰ SÁT HẠCH LÁI XE",
+          "score": 0.8178
+        },
+        {
+          "attachment_id": "12_2025_tt_bca.mau_so_01_ban_de_nghi_xac_minh_giay_phep_lai_xe",
+          "title": "BẢN ĐỀ NGHỊ XÁC MINH GIẤY PHÉP LÁI XE",
+          "score": 0.7205
+        },
+        {
+          "attachment_id": "12_2025_tt_bca.mau_so_01_bien_ban_tong_hop_ket_qua_sat_hach_lai_xe_doi_voi_thi_sinh_du_sat_hach_cac_hang",
+          "title": "BIÊN BẢN TỔNG HỢP KẾT QUẢ SÁT HẠCH LÁI XE HẠNG B1 VÀ Ô TÔ",
+          "score": 0.7118
+        },
+        {
+          "attachment_id": "12_2025_tt_bca.mau_so_01_bao_cao_chung_ket_qua_ky_sat_hach_lai_xe",
+          "title": "BÁO CÁO CHUNG KẾT QUẢ KỲ SÁT HẠCH LÁI XE",
+          "score": 0.7108
+        },
+        {
+          "attachment_id": "12_2025_tt_bca.phu_luc_xiv",
+          "title": "TRANG SỐ 1 TRANG SỐ 2 TRANG SỐ 3 TRANG SỐ 5 TRANG SỐ 6 TRANG SỐ 7 TRANG SỐ 8 TRANG SỐ 9",
+          "score": 0.4709
+        }
+      ]
+    }
+  ]
+}

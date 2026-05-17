@@ -1,0 +1,47 @@
+{
+  "package_id": "12_2025_TTBCA",
+  "document_id": "12_2025_tt_bca",
+  "document_number": "12/2025/TT-BCA",
+  "attachment_id": "12_2025_tt_bca.mau_so_06_danh_sach_thi_sinh_du_sat_hach_de_cap_giay_phep_lai_xe",
+  "attachment_slug": "mau_so_06_danh_sach_thi_sinh_du_sat_hach_de_cap_giay_phep_lai_xe",
+  "attachment_kind": "form",
+  "classifier_confidence": 0.9,
+  "classifier_reason": "filename starts with Mau/DKX",
+  "label": "Mẫu số 06",
+  "title": "Danh sách thí sinh dự sát hạch để cấp giấy phép lái xe",
+  "issued_with": null,
+  "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Mau so 06. Danh sach thi sinh du sat hach de cap giay phep lai xe.docx",
+  "parser": "form_parser",
+  "parsed_dir": "attachments\\mau_so_06_danh_sach_thi_sinh_du_sat_hach_de_cap_giay_phep_lai_xe",
+  "unit_count": 8,
+  "table_count": 1,
+  "table_row_count": 3,
+  "form_field_count": 1,
+  "parent_appendix_labels": [
+    "Phụ lục VIII"
+  ],
+  "parent_appendix_label": "Phụ lục VIII",
+  "parent_appendix_inferences": [
+    {
+      "appendix_label": "Phụ lục VIII",
+      "form_number_norm": "6",
+      "method": "main_body_reference_context",
+      "confidence": 0.94,
+      "evidence_count": 1,
+      "evidence": [
+        {
+          "source_unit_id": "12_2025_tt_bca.dieu_9.khoan_4",
+          "source_path_text": "12/2025/TT-BCA > Chương II. SÁT HẠCH LÁI XE > Điều 9. Chuẩn bị kỳ sát hạch > Khoản 4. Phòng Cảnh sát giao thông báo cáo Giám đốc Công an cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe theo quy định tại mẫu số 04 Phụ lục VIII kèm theo danh sách thí sinh dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 06 Phụ lục VIII, danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 05 Phụ lục VIII ban hành kèm theo Thông tư này.",
+          "text": "cấp tỉnh ban hành quyết định tổ chức kỳ sát hạch lái xe theo quy định tại mẫu số 04 Phụ lục VIII kèm theo danh sách thí sinh dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 06 Phụ lục VIII, danh sách thí sinh có giấy phép lái xe quá thời hạn sử dụng dự sát hạch để cấp giấy phép lái xe theo quy định tại mẫu số 05 Phụ lục VIII ban hành kèm theo Thông tư này."
+        }
+      ],
+      "alternatives": [
+        {
+          "attachment_id": "12_2025_tt_bca.mau_so_06_danh_sach_thi_sinh_du_sat_hach_de_cap_giay_phep_lai_xe",
+          "title": "Danh sách thí sinh dự sát hạch để cấp giấy phép lái xe",
+          "score": 0.94
+        }
+      ]
+    }
+  ]
+}

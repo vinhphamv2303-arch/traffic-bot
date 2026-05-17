@@ -1,0 +1,20 @@
+{
+  "package_id": "12_2025_TTBCA",
+  "document_id": "12_2025_tt_bca",
+  "document_number": "12/2025/TT-BCA",
+  "attachment_id": "12_2025_tt_bca.phu_luc_v_quy_trinh_sat_hach_hang_be_d1e_d2e_de",
+  "attachment_slug": "phu_luc_v_quy_trinh_sat_hach_hang_be_d1e_d2e_de",
+  "attachment_kind": "appendix_structured",
+  "classifier_confidence": 0.78,
+  "classifier_reason": "filename starts with Phu luc",
+  "label": "Phụ lục V",
+  "title": "QUY TRÌNH SÁT HẠCH HẠNG BE, D1E, D2E, DE",
+  "issued_with": "12/2025/TT-BCA",
+  "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc V. Quy trinh sat hach hang BE D1E D2E DE.docx",
+  "parser": "appendix_parser",
+  "parsed_dir": "attachments\\phu_luc_v_quy_trinh_sat_hach_hang_be_d1e_d2e_de",
+  "unit_count": 230,
+  "table_count": 20,
+  "table_row_count": 79,
+  "form_field_count": 0
+}

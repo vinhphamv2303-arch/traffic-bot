@@ -1,0 +1,20 @@
+{
+  "package_id": "12_2025_TTBCA",
+  "document_id": "12_2025_tt_bca",
+  "document_number": "12/2025/TT-BCA",
+  "attachment_id": "12_2025_tt_bca.phu_luc_iv_quy_trinh_sat_hach_lai_xe_cac_hang_b_c1_c_d1_d2_va_d",
+  "attachment_slug": "phu_luc_iv_quy_trinh_sat_hach_lai_xe_cac_hang_b_c1_c_d1_d2_va_d",
+  "attachment_kind": "appendix_structured",
+  "classifier_confidence": 0.78,
+  "classifier_reason": "filename starts with Phu luc",
+  "label": "Phụ lục IV",
+  "title": "QUY TRÌNH SÁT HẠCH LÁI XE CÁC HẠNG B, C1, C, D1, D2 VÀ D",
+  "issued_with": "12/2025/TT-BCA",
+  "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc IV. Quy trinh sat hach lai xe cac hang B C1 C D1 D2 va D.docx",
+  "parser": "appendix_parser",
+  "parsed_dir": "attachments\\phu_luc_iv_quy_trinh_sat_hach_lai_xe_cac_hang_b_c1_c_d1_d2_va_d",
+  "unit_count": 282,
+  "table_count": 38,
+  "table_row_count": 99,
+  "form_field_count": 0
+}

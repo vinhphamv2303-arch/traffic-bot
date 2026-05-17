@@ -1,0 +1,20 @@
+{
+  "package_id": "12_2025_TTBCA",
+  "document_id": "12_2025_tt_bca",
+  "document_number": "12/2025/TT-BCA",
+  "attachment_id": "12_2025_tt_bca.phu_luc_xiv",
+  "attachment_slug": "phu_luc_xiv",
+  "attachment_kind": "appendix_form",
+  "classifier_confidence": 0.86,
+  "classifier_reason": "appendix with form-like fields",
+  "label": "Phụ lục XIV",
+  "title": "TRANG SỐ 1 TRANG SỐ 2 TRANG SỐ 3 TRANG SỐ 5 TRANG SỐ 6 TRANG SỐ 7 TRANG SỐ 8 TRANG SỐ 9",
+  "issued_with": "12/2025/TT-BCA",
+  "source_file": "D:\\Users\\ADMIN\\LocalData\\Classworks\\KLTN\\data\\dataset\\12_2025_TTBCA\\Phu luc XIV.docx",
+  "parser": "form_parser",
+  "parsed_dir": "attachments\\phu_luc_xiv",
+  "unit_count": 24,
+  "table_count": 0,
+  "table_row_count": 0,
+  "form_field_count": 0
+}
