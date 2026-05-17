@@ -223,7 +223,7 @@ Resolver ưu tiên metadata này trước khi dùng scoring theo context/title.
 Code Python nên import trực tiếp từ các subpackage:
 
 ```python
-from legal_parser_modular.legal_parser.body import LegalBodyParser
-from legal_parser_modular.legal_parser.package import LegalPackageParser
-from legal_parser_modular.legal_parser.common import ParserConfig
+from legal_parser.body import LegalBodyParser
+from legal_parser.package import LegalPackageParser
+from legal_parser.common import ParserConfig
 ```
