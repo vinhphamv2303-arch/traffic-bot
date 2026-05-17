@@ -1,14 +1,12 @@
 {
   "total": 206,
-  "resolved": 178,
+  "resolved": 197,
   "ambiguous": 6,
-  "unresolved": 22,
+  "unresolved": 3,
   "non_reference": 0,
   "by_status": {
-    "resolved": 178,
-    "input_inconsistent": 17,
+    "resolved": 197,
     "unresolved_missing_attachment": 3,
-    "unresolved": 2,
     "ambiguous": 6
   },
   "by_mention_type": {

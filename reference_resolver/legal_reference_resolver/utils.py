@@ -132,15 +132,16 @@ def normalize_document_number(text):
         return None
 
     raw = collapse_ws(text).replace("\u00a0", " ")
+    raw = re.sub(r"\s*[-–—]\s*", "-", raw)
+    raw = raw.upper().replace("Đ", "D")
     # Token-bound capture:
-    # - agency suffix accepts hyphen-separated all-caps tokens.
-    # - stops before lowercase Vietnamese words such as "ngày".
-    # - supports NĐ-CP / ND-CP / TT-BGTVT / TT-BCA / QH15.
+    # - agency suffix accepts hyphen-separated uppercase tokens.
+    # - supports NĐ-CP / ND-CP / TT-BGTVT / QĐ-TTG even when OCR inserts spaces.
     m = re.search(
         r"(?P<num>\d+)\s*/\s*(?P<year>\d{4})\s*/\s*"
-        r"(?P<kind>[A-ZĐ]{1,12}\d{0,2})"
-        r"(?:\s*[-–—]\s*(?P<agency>[A-ZĐ0-9]{1,16}(?:\s*[-–—]\s*[A-ZĐ0-9]{1,16})*))?"
-        r"(?=$|[\s,.;:)\\]]|ngày|ngay|của|cua)",
+        r"(?P<kind>[A-Z]{1,12}\d{0,2})"
+        r"(?:-(?P<agency>[A-Z0-9]{1,16}(?:-[A-Z0-9]{1,16})*))?"
+        r"(?=$|[\s,.;:)\\]])",
         raw,
         re.UNICODE,
     )
@@ -148,7 +149,7 @@ def normalize_document_number(text):
         # Fallback but still non-greedy and uppercase-token bounded.
         m = re.search(
             r"(?P<num>\d+)\s*/\s*(?P<year>\d{4})\s*/\s*"
-            r"(?P<kind>[A-ZĐ]{1,12}\d{0,2})(?:[-–—](?P<agency>[A-ZĐ0-9-]{1,40}))?",
+            r"(?P<kind>[A-Z]{1,12}\d{0,2})(?:-(?P<agency>[A-Z0-9-]{1,40}))?",
             raw,
             re.UNICODE,
         )
@@ -157,8 +158,8 @@ def normalize_document_number(text):
 
     num = m.group("num")
     year = m.group("year")
-    kind = (m.group("kind") or "").upper().replace("Đ", "D")
-    agency = (m.group("agency") or "").upper().replace("Đ", "D")
+    kind = (m.group("kind") or "").upper()
+    agency = (m.group("agency") or "").upper()
     agency = re.sub(r"[^A-Z0-9]+", "", agency)
     if kind == "QH" and agency.isdigit():
         return f"{num}/{year}/QH{agency}"

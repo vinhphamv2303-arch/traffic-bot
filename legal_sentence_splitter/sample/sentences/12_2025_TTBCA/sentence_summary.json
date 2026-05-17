@@ -1,0 +1,12 @@
+{
+  "package_id": "12_2025_TTBCA",
+  "sentence_count": 3,
+  "by_sentence_type": {
+    "legal_sentence": 2,
+    "table_row_sentence": 1
+  },
+  "by_unit_type": {
+    "khoan": 2,
+    "table_row": 1
+  }
+}

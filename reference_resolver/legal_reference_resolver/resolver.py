@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from .config import ResolverConfig
@@ -275,7 +276,8 @@ class ReferenceResolver:
         doc_id = None
         resolver_scope = "same_document"
         doc_confidence = 1.0
-        if sel.get("document_number"):
+        force_same_document = self.relative_unit_scope(sel)
+        if not force_same_document and sel.get("document_number"):
             doc = self.inventory.find_doc_by_number(sel["document_number"])
             if doc:
                 doc_id = doc.get("document_id")
@@ -290,7 +292,7 @@ class ReferenceResolver:
                     "resolver": "unit_selector_document_number_missing",
                     "status_hint": "unresolved_missing_document",
                 }]
-        elif sel.get("document_title_hint"):
+        elif not force_same_document and sel.get("document_title_hint"):
             hits = self.inventory.find_doc_by_title_hint(sel["document_title_hint"])
             if hits:
                 doc, doc_confidence = hits[0]
@@ -340,6 +342,15 @@ class ReferenceResolver:
             ]
 
         return []
+
+    @staticmethod
+    def relative_unit_scope(sel):
+        return (sel.get("scope_hint") or "") in {
+            "this_unit_or_article",
+            "this_article",
+            "this_unit_or_clause",
+            "this_clause",
+        }
 
     def resolve_generic(self, package_id, m, sel):
         out = []
@@ -501,6 +512,9 @@ class ReferenceResolver:
             return None
         if raw in source_text:
             return None
+        raw_list = m.get("raw_list") or ""
+        if raw_list and raw_list in source_text and ReferenceResolver._expanded_list_item_in_raw_list(m, raw, raw_list):
+            return None
         raw_key = canonical_key(raw)
         source_key = canonical_key(source_text)
         if raw_key and raw_key in source_key:
@@ -508,6 +522,16 @@ class ReferenceResolver:
         if (m.get("mention_type") or m.get("type")) in {"article", "clause", "point", "appendix", "form"}:
             return "raw_not_found_in_source_text"
         return None
+
+    @staticmethod
+    def _expanded_list_item_in_raw_list(m, raw, raw_list):
+        label = str(m.get("label") or "").strip()
+        values = {label} if label else set()
+        values.update(re.findall(r"\d+[a-zA-Z]?|[a-zđĐ]\d?", raw or "", flags=re.UNICODE))
+        for value in values:
+            if value and re.search(rf"(?<!\w){re.escape(value)}(?!\w)", raw_list, flags=re.IGNORECASE | re.UNICODE):
+                return True
+        return False
 
     @staticmethod
     def candidate(t, score, resolver):

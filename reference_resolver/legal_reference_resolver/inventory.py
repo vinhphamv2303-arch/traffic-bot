@@ -2,7 +2,7 @@
 import re
 from collections import defaultdict
 
-from .utils import canonical_key, doc_number_key, normalize_numeric_label, point_key, read_json, read_jsonl, term_overlap_score
+from .utils import canonical_key, doc_number_key, normalize_numeric_label, normalized_terms, point_key, read_json, read_jsonl, term_overlap_score
 
 class LegalInventory:
     """
@@ -204,6 +204,7 @@ class LegalInventory:
         hint_key = canonical_key(title_hint or "")
         if not hint_key:
             return []
+        hint_term_count = len(set(normalized_terms(title_hint or "")))
 
         scored = []
         for doc in self.documents:
@@ -215,6 +216,8 @@ class LegalInventory:
             score = term_overlap_score(title_hint, title)
             if title_key in hint_key:
                 score = max(score, 0.98)
+            elif hint_term_count >= 3 and hint_key in title_key and self._compatible_title_hint_kind(hint_key, title_key):
+                score = max(score, 0.93)
             if score >= min_score:
                 scored.append((doc, round(score, 4)))
 
@@ -224,6 +227,18 @@ class LegalInventory:
         if len(scored) >= 2 and scored[1][1] >= scored[0][1] - min_gap:
             return []
         return scored
+
+    @staticmethod
+    def _compatible_title_hint_kind(hint_key, title_key):
+        def kind(key):
+            for prefix in ("boluat", "luat", "nghidinh", "thongtu", "quyetdinh", "nghiquyet"):
+                if key.startswith(prefix):
+                    return prefix
+            return None
+
+        hint_kind = kind(hint_key)
+        title_kind = kind(title_key)
+        return bool(hint_kind and title_kind and hint_kind == title_kind)
 
     def find_attachment(self, package_id, label):
         keys = {canonical_key(label), canonical_key(label.split()[-1] if label else "")}

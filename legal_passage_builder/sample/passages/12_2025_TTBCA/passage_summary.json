@@ -1,0 +1,15 @@
+{
+  "package_id": "12_2025_TTBCA",
+  "passage_count": 3,
+  "atomic_count": 2,
+  "container_count": 1,
+  "by_unit_type": {
+    "dieu": 1,
+    "khoan": 1,
+    "table_row": 1
+  },
+  "by_passage_kind": {
+    "container": 1,
+    "atomic": 2
+  }
+}
