@@ -1,4 +1,4 @@
-\
+
 # Effectivity Processor
 
 Module hậu xử lý cho parser pháp luật.
