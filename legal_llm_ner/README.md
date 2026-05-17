@@ -154,8 +154,15 @@ python build_review_dataset.py \
   -i "../data/preprocessed/entities_probe_2000" "../data/preprocessed/entities_large_probe" \
      "../data/preprocessed/entities_diverse_probe" "../data/preprocessed/entities_ollama_probe" \
   -o "../data/preprocessed/entities_silver_review" \
-  --license-class-supplement-limit 12
+  --license-class-supplement-limit 12 \
+  --regex-supplement-sentence-root "../data/preprocessed/sentences" \
+  --regex-supplement-limit-per-label 12
 ```
 
 `--license-class-supplement-limit` chi them mot so nho span `LICENSE_CLASS` bang regex va gan
 `quality_flags=regex_supplement`, nen can review truoc khi dung de fine-tune.
+
+`--regex-supplement-limit-per-label` bo sung mot so nho span cho cac nhan thua du lieu nhu
+`FINE_AMOUNT`, `TIME_OR_DURATION`, `LOCATION_OR_ROAD_CONTEXT`, `TRAFFIC_SIGNAL_OR_SIGN`,
+`CONSEQUENCE_OR_HARM`, va `PLAN_OR_PROJECT`. Cac span nay cung duoc gan
+`quality_flags=regex_supplement`.
