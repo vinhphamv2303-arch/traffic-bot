@@ -1,5 +1,11 @@
 import argparse
+import sys
 from legal_xner_span_miner.candidates import collect_span_candidates
+
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 
 def main():
     ap = argparse.ArgumentParser(description="Generate candidate spans from sentences/path_text.")

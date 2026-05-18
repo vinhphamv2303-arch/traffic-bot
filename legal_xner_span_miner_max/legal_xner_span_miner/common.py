@@ -23,6 +23,10 @@ LABELS = [
 ]
 
 
+def log(message: str) -> None:
+    print(message, flush=True)
+
+
 def ensure_dir(path: str | Path) -> Path:
     p = Path(path)
     p.mkdir(parents=True, exist_ok=True)

@@ -65,6 +65,19 @@ python run_xner_mining.py `
   --batch-size 64
 ```
 
+Nếu chỉ muốn kiểm tra local mà không tải embedding model / không dùng GPU:
+
+```powershell
+python run_xner_mining.py `
+  --sentences-root "../data/preprocessed/sentences" `
+  --gazetteer-root "../data/preprocessed/gazetteers_v1_pruned" `
+  --output "../data/preprocessed/xner_mined_entities_v1_test" `
+  --max-sentences 5000 `
+  --skip-scoring
+```
+
+Khi chạy, chương trình sẽ log từng bước bằng prefix `[xner]`, `[xner:candidates]`, `[xner:scoring]`.
+
 ## 2. Output
 
 ```text

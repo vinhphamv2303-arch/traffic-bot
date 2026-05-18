@@ -1,5 +1,11 @@
 import argparse
+import sys
 from legal_xner_span_miner.gazetteer_v2 import build_gazetteer_v2
+
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 
 def main():
     ap = argparse.ArgumentParser(description="Build gazetteer v2 from pruned gazetteer + reviewed mined candidates.")

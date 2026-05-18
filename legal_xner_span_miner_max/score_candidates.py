@@ -1,5 +1,11 @@
 import argparse
+import sys
 from legal_xner_span_miner.scoring import score_candidates_embedding
+
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 
 def main():
     ap = argparse.ArgumentParser(description="Score candidate spans against seeds with embedding-based X-NER-style mining.")

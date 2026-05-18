@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 
 import math
 
-from .common import ensure_dir, normalize_key, read_jsonl, safe_float, write_csv, write_json, write_jsonl
+from .common import ensure_dir, log, normalize_key, read_jsonl, safe_float, write_csv, write_json, write_jsonl
 
 
 def load_rows(path: str | Path) -> List[Dict[str, Any]]:
@@ -54,8 +54,11 @@ def score_candidates_embedding(
     device: str | None = "cuda",
 ) -> Dict[str, Any]:
     output_dir = ensure_dir(output_dir)
+    log(f"[xner:scoring] loading seeds from {seeds_path}")
     seeds = load_rows(seeds_path)
+    log(f"[xner:scoring] loading candidates from {candidates_path}")
     candidates = load_rows(candidates_path)
+    log(f"[xner:scoring] seeds={len(seeds)} candidates={len(candidates)}")
 
     if not seeds:
         raise ValueError(f"No seeds found in {seeds_path}")
@@ -89,15 +92,19 @@ def score_candidates_embedding(
         try:
             import torch
             if not torch.cuda.is_available():
+                log("[xner:scoring] CUDA requested but not available; falling back to CPU")
                 device = "cpu"
         except Exception:
+            log("[xner:scoring] torch CUDA check failed; falling back to CPU")
             device = "cpu"
 
     SentenceTransformer = try_import_sentence_transformer()
+    log(f"[xner:scoring] loading embedding model={embedding_model} device={device}")
     model = SentenceTransformer(embedding_model, device=device)
 
     # Embed all seeds.
     seed_texts = [build_seed_text(s) for s in seeds]
+    log(f"[xner:scoring] encoding seed texts={len(seed_texts)}")
     seed_emb = model.encode(seed_texts, batch_size=batch_size, normalize_embeddings=True, convert_to_numpy=True)
 
     seed_index_by_label = defaultdict(list)
@@ -105,8 +112,10 @@ def score_candidates_embedding(
         seed_index_by_label[s["label"]].append(i)
 
     cand_texts = [build_candidate_text(c) for c in candidates]
+    log(f"[xner:scoring] encoding candidate texts={len(cand_texts)} batch_size={batch_size}")
     cand_emb = model.encode(cand_texts, batch_size=batch_size, normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=True)
 
+    log("[xner:scoring] scoring candidates")
     mined = []
     for ci, cand in enumerate(candidates):
         label = cand.get("label")
@@ -183,4 +192,5 @@ def score_candidates_embedding(
         }
     }
     write_json(output_dir / "mining_summary.json", summary)
+    log(f"[xner:scoring] completed mined_count={len(mined)}")
     return summary

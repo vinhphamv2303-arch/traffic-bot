@@ -1,5 +1,11 @@
 import argparse
+import sys
 from legal_xner_span_miner.seeds import build_seeds
+
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 
 def main():
     ap = argparse.ArgumentParser(description="Build seed entities for X-NER-style mining.")

@@ -12,6 +12,7 @@ from .common import (
     find_sentence_package_dirs,
     is_reference_like,
     is_too_generic,
+    log,
     normalize_surface,
     normalize_key,
     read_jsonl,
@@ -139,6 +140,7 @@ def collect_span_candidates(
     max_ngram: int = 14,
     include_path_text: bool = True,
     min_surface_count: int = 1,
+    progress_every: int = 5000,
 ) -> Dict[str, Any]:
     output_dir = ensure_dir(output_dir)
     all_candidates = []
@@ -146,10 +148,16 @@ def collect_span_candidates(
 
     sentence_count = 0
     for pkg_dir in find_sentence_package_dirs(sentences_root):
+        log(f"[xner:candidates] scanning package {pkg_dir.name}")
         for row in read_jsonl(pkg_dir / "sentences.jsonl"):
             if max_sentences and sentence_count >= max_sentences:
                 break
             sentence_count += 1
+            if progress_every and sentence_count % progress_every == 0:
+                log(
+                    "[xner:candidates] "
+                    f"sentences={sentence_count} unique_candidates={len(surface_stats)}"
+                )
 
             text_items = [("text", row.get("text") or "")]
             if include_path_text:
@@ -205,4 +213,8 @@ def collect_span_candidates(
         "output": str(output_dir / "span_candidates.jsonl"),
     }
     write_json(output_dir / "candidate_summary.json", summary)
+    log(
+        "[xner:candidates] completed "
+        f"sentences={sentence_count} candidates={len(rows)}"
+    )
     return summary

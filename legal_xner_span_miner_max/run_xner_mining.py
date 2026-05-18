@@ -1,5 +1,11 @@
 import argparse
+import sys
 from legal_xner_span_miner import run_xner_mining
+
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 
 def main():
     ap = argparse.ArgumentParser(description="Run full X-NER-style span mining pipeline.")
@@ -14,6 +20,7 @@ def main():
     ap.add_argument("--batch-size", type=int, default=256)
     ap.add_argument("--min-score", type=float, default=0.35)
     ap.add_argument("--device", default="cuda")
+    ap.add_argument("--skip-scoring", action="store_true", help="Run only seed + candidate generation; do not load embedding model.")
     ap.add_argument(
         "--quality-preset",
         choices=["balanced", "max"],
@@ -39,6 +46,7 @@ def main():
         batch_size=args.batch_size,
         min_score=args.min_score,
         device=args.device,
+        skip_scoring=args.skip_scoring,
     )
     print("X-NER-style mining completed")
     print(summary)
