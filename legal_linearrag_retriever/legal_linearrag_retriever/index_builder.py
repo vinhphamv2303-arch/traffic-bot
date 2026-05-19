@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -12,6 +12,71 @@ from .utils import ensure_dir, read_jsonl, save_pickle, write_json, write_jsonl
 
 def _node_raw_id(node_id: str, prefix: str) -> str:
     return node_id.replace(prefix, "", 1) if node_id.startswith(prefix) else node_id
+
+
+def _add_passage_aliases(pid: str, mapping: Dict[str, str], *, prefer: bool = False) -> None:
+    if not pid:
+        return
+    if prefer:
+        mapping[pid] = pid
+    else:
+        mapping.setdefault(pid, pid)
+
+    if pid.endswith(".passage"):
+        core = pid[: -len(".passage")]
+        if prefer:
+            mapping[core] = pid
+            mapping[core + ".text_1"] = pid
+        else:
+            mapping.setdefault(core, pid)
+            mapping.setdefault(core + ".text_1", pid)
+    else:
+        mapping.setdefault(pid + ".passage", pid)
+
+    if ".text_" in pid:
+        base = pid.split(".text_", 1)[0]
+        if prefer:
+            mapping[base] = pid
+            mapping[base + ".passage"] = pid
+        else:
+            mapping.setdefault(base, pid)
+            mapping.setdefault(base + ".passage", pid)
+
+    for suffix in [".table_1.passage", ".table_1", ".appendix_item_decimal_1.passage"]:
+        if pid.endswith(suffix):
+            base = pid[: -len(suffix)]
+            if prefer:
+                mapping[base] = pid
+            else:
+                mapping.setdefault(base, pid)
+
+
+def _resolve_passage_id(raw_id: str | None, mapping: Dict[str, str]) -> str | None:
+    if not raw_id:
+        return None
+    if raw_id in mapping:
+        return mapping[raw_id]
+    if raw_id.endswith(".passage") and raw_id[:-8] in mapping:
+        return mapping[raw_id[:-8]]
+    if (raw_id + ".passage") in mapping:
+        return mapping[raw_id + ".passage"]
+    if ".text_" in raw_id:
+        base = raw_id.split(".text_", 1)[0]
+        if base in mapping:
+            return mapping[base]
+        if (base + ".passage") in mapping:
+            return mapping[base + ".passage"]
+    return None
+
+
+def build_passage_id_map(passages: List[Dict[str, Any]]) -> Dict[str, str]:
+    mapping: Dict[str, str] = {}
+    for p in passages:
+        if (p.get("passage_text") or "").strip():
+            _add_passage_aliases(p.get("passage_id") or "", mapping, prefer=True)
+    for p in passages:
+        _add_passage_aliases(p.get("passage_id") or "", mapping, prefer=False)
+    return mapping
 
 
 def load_graph(graph_root: str | Path):
@@ -28,6 +93,8 @@ def build_passage_records(passage_nodes: List[Dict[str, Any]]) -> List[Dict[str,
     for p in passage_nodes:
         pid = p.get("passage_id") or _node_raw_id(p.get("id") or "", "passage::")
         text = p.get("passage_text") or p.get("text_preview") or ""
+        if not str(text).strip():
+            continue
         index_text = "\n".join([
             f"Van ban: {p.get('document_number') or p.get('document_id') or ''}",
             f"Duong dan: {p.get('path_text') or ''}",
@@ -68,18 +135,28 @@ def build_entity_records(entity_nodes: List[Dict[str, Any]]) -> List[Dict[str, A
     return records
 
 
-def build_graph_maps(mention_edges: List[Dict[str, Any]], reference_edges: List[Dict[str, Any]]):
+def build_graph_maps(
+    mention_edges: List[Dict[str, Any]],
+    reference_edges: List[Dict[str, Any]],
+    passage_id_map: Dict[str, str],
+    valid_passage_ids: set[str],
+):
     entity_to_passages = defaultdict(list)
     passage_to_entities = defaultdict(list)
     passage_neighbors = defaultdict(list)
+    stats = Counter()
 
     for edge in mention_edges:
         if edge.get("edge_type") != "PASSAGE_MENTIONS_ENTITY":
             continue
-        pid = edge.get("source_id")
+        raw_pid = edge.get("source_id")
+        pid = _resolve_passage_id(raw_pid, passage_id_map)
         eid = edge.get("target_id")
-        if not pid or not eid:
+        if not pid or pid not in valid_passage_ids or not eid:
+            stats["skipped_mention_edge_bad_passage"] += 1
             continue
+        if raw_pid != pid:
+            stats["remapped_mention_source"] += 1
         meta = edge.get("metadata") or {}
         item = {
             "passage_id": pid,
@@ -96,16 +173,24 @@ def build_graph_maps(mention_edges: List[Dict[str, Any]], reference_edges: List[
     for edge in reference_edges:
         if edge.get("edge_type") != "PASSAGE_REFERS_TO_PASSAGE":
             continue
-        src = edge.get("source_id")
-        tgt = edge.get("target_id")
-        if src and tgt:
+        raw_src = edge.get("source_id")
+        raw_tgt = edge.get("target_id")
+        src = _resolve_passage_id(raw_src, passage_id_map)
+        tgt = _resolve_passage_id(raw_tgt, passage_id_map)
+        if src and tgt and src in valid_passage_ids and tgt in valid_passage_ids:
+            if raw_src != src:
+                stats["remapped_reference_source"] += 1
+            if raw_tgt != tgt:
+                stats["remapped_reference_target"] += 1
             passage_neighbors[src].append({
                 "passage_id": tgt,
                 "weight": float(edge.get("weight", 1.0)),
                 "edge_type": edge.get("edge_type"),
             })
+        else:
+            stats["skipped_reference_edge_bad_passage"] += 1
 
-    return dict(entity_to_passages), dict(passage_to_entities), dict(passage_neighbors)
+    return dict(entity_to_passages), dict(passage_to_entities), dict(passage_neighbors), dict(stats)
 
 
 def build_embeddings(texts: List[str], model_name: str, batch_size: int = 64):
@@ -138,7 +223,14 @@ def build_index(
     passage_nodes, entity_nodes, mention_edges, reference_edges = load_graph(graph_root)
     passages = build_passage_records(passage_nodes)
     entities = build_entity_records(entity_nodes)
-    entity_to_passages, passage_to_entities, passage_neighbors = build_graph_maps(mention_edges, reference_edges)
+    passage_id_map = build_passage_id_map(passages)
+    valid_passage_ids = {p["passage_id"] for p in passages}
+    entity_to_passages, passage_to_entities, passage_neighbors, graph_map_stats = build_graph_maps(
+        mention_edges,
+        reference_edges,
+        passage_id_map,
+        valid_passage_ids,
+    )
 
     write_jsonl(output_dir / "passages.jsonl", passages)
     write_jsonl(output_dir / "entities.jsonl", entities)
@@ -162,9 +254,12 @@ def build_index(
         "gazetteer_root": str(gazetteer_root),
         "output_dir": str(output_dir),
         "passage_count": len(passages),
+        "source_passage_node_count": len(passage_nodes),
+        "skipped_empty_passage_count": len(passage_nodes) - len(passages),
         "entity_count": len(entities),
         "mention_edge_count": len(mention_edges),
         "reference_edge_count": len(reference_edges),
+        "graph_map_stats": graph_map_stats,
         "embedding_model": embedding_model,
         "skip_embeddings": skip_embeddings,
         "files": {

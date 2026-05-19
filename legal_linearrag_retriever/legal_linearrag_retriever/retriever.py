@@ -66,6 +66,12 @@ class LinearRAGRetriever:
         summary = read_json(Path(index_dir) / "index_summary.json")
         return cls(index_dir=index_dir, gazetteer_root=gazetteer_root, embedding_model=summary.get("embedding_model"))
 
+    def _has_retrievable_text(self, passage_id: str | None) -> bool:
+        if not passage_id:
+            return False
+        passage = self.passage_by_id.get(passage_id)
+        return bool(passage and (passage.get("passage_text") or "").strip())
+
     def _encode_query(self, query: str):
         if self.embedding_model is None:
             return None
@@ -139,7 +145,7 @@ class LinearRAGRetriever:
             links = sorted(links, key=lambda x: (float(x.get("weight", 0)), int(x.get("mention_count", 1))), reverse=True)[:top_k_per_entity]
             for l in links:
                 pid = l.get("passage_id")
-                if not pid:
+                if not self._has_retrievable_text(pid):
                     continue
                 edge_w = float(l.get("weight", 1.0))
                 mention_boost = min(1.5, 1.0 + 0.1 * max(int(l.get("mention_count", 1)) - 1, 0))
@@ -154,9 +160,11 @@ class LinearRAGRetriever:
     ) -> Dict[str, float]:
         expanded = defaultdict(float)
         for pid, score in sorted(base_scores.items(), key=lambda x: x[1], reverse=True)[:max_seed_passages]:
+            if not self._has_retrievable_text(pid):
+                continue
             for nb in self.passage_neighbors.get(pid) or []:
                 target = nb.get("passage_id")
-                if not target:
+                if not self._has_retrievable_text(target):
                     continue
                 expanded[target] += score * ref_decay * float(nb.get("weight", 1.0))
         return dict(expanded)
@@ -191,14 +199,31 @@ class LinearRAGRetriever:
         dense = self.dense_passage_scores(query_vec, top_k=candidate_k)
         bm25 = self.bm25_scores(query, top_k=candidate_k)
         graph = self.graph_scores(activated_entities, top_k_per_entity=candidate_k)
-        ref = self.reference_expand_scores(graph, max_seed_passages=50) if use_reference_expansion else {}
+
+        # Reference expansion nên xuất phát từ cả lexical candidates và graph candidates.
+        # Nhiều passage có dạng "theo quy định tại Điều..." được BM25 bắt rất tốt,
+        # nhưng nếu chỉ expand từ graph thì passage đích khó được kéo lên.
+        reference_seed = defaultdict(float)
+
+        for pid, s in bm25.items():
+            reference_seed[pid] += 0.7 * float(s)
+
+        for pid, s in graph.items():
+            reference_seed[pid] += 0.3 * float(s)
+
+        ref = self.reference_expand_scores(reference_seed, max_seed_passages=100,
+                                           ref_decay=1.0) if use_reference_expansion else {}
 
         dense_n = minmax_normalize(dense)
         bm25_n = minmax_normalize(bm25)
         graph_n = minmax_normalize(graph)
         ref_n = minmax_normalize(ref)
 
-        all_pids = set(dense_n) | set(bm25_n) | set(graph_n) | set(ref_n)
+        all_pids = {
+            pid
+            for pid in (set(dense_n) | set(bm25_n) | set(graph_n) | set(ref_n))
+            if self._has_retrievable_text(pid)
+        }
         final_scores = {}
         adjusted_graph_n = {}
         for pid in all_pids:
@@ -232,7 +257,7 @@ class LinearRAGRetriever:
                 "path_text": p.get("path_text"),
                 "passage_kind": p.get("passage_kind"),
                 "unit_type": p.get("unit_type"),
-                "text": p.get("passage_text"),
+                "text": p.get("passage_text") or "",
                 "entities": self.passage_to_entities.get(pid, [])[:20],
             })
 
