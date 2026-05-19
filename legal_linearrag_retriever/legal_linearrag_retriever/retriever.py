@@ -178,6 +178,7 @@ class LinearRAGRetriever:
         semantic_entity_min_score: float = 0.45,
         weights: Dict[str, float] | None = None,
         use_reference_expansion: bool = True,
+        reference_seed_weights: Dict[str, float] | None = None,
         graph_only_penalty: float = 0.65,
     ) -> Dict[str, Any]:
         weights = weights or {
@@ -185,6 +186,140 @@ class LinearRAGRetriever:
             "bm25": 0.25,
             "graph": 0.35,
             "reference": 0.05,
+        }
+
+        reference_seed_weights = reference_seed_weights or {"bm25": 0.7, "graph": 0.3}
+        component_weights = {
+            "dense": float(weights.get("dense", 0.0)),
+            "bm25": float(weights.get("bm25", 0.0)),
+            "graph": float(weights.get("graph", 0.0)),
+            "reference": float(weights.get("reference", 0.0)),
+        }
+        reference_seed_weights = {
+            "dense": float(reference_seed_weights.get("dense", 0.0)),
+            "bm25": float(reference_seed_weights.get("bm25", 0.0)),
+            "graph": float(reference_seed_weights.get("graph", 0.0)),
+        }
+
+        uses_reference = use_reference_expansion and component_weights["reference"] > 0.0
+        needs_dense = component_weights["dense"] > 0.0 or (uses_reference and reference_seed_weights["dense"] > 0.0)
+        needs_bm25 = component_weights["bm25"] > 0.0 or (uses_reference and reference_seed_weights["bm25"] > 0.0)
+        needs_graph = component_weights["graph"] > 0.0 or (uses_reference and reference_seed_weights["graph"] > 0.0)
+        needs_query_vec = needs_dense or needs_graph
+
+        query_vec = self._encode_query(query) if needs_query_vec else None
+        if needs_dense and query_vec is None:
+            raise RuntimeError(
+                "Dense retrieval was requested, but this index has no loaded embedding model. "
+                "Check index_summary.json and make sure the dense index was built with embeddings."
+            )
+
+        if needs_graph:
+            activated_entities, entity_evidence = self.activate_entities(
+                query=query,
+                query_vec=query_vec,
+                semantic_entity_top_k=semantic_entity_top_k,
+                semantic_entity_min_score=semantic_entity_min_score,
+            )
+        else:
+            activated_entities, entity_evidence = {}, []
+
+        dense = self.dense_passage_scores(query_vec, top_k=candidate_k) if needs_dense else {}
+        bm25 = self.bm25_scores(query, top_k=candidate_k) if needs_bm25 else {}
+        graph = self.graph_scores(activated_entities, top_k_per_entity=candidate_k) if needs_graph else {}
+
+        reference_seed = defaultdict(float)
+        for pid, score in dense.items():
+            reference_seed[pid] += reference_seed_weights["dense"] * float(score)
+        for pid, score in bm25.items():
+            reference_seed[pid] += reference_seed_weights["bm25"] * float(score)
+        for pid, score in graph.items():
+            reference_seed[pid] += reference_seed_weights["graph"] * float(score)
+
+        ref = self.reference_expand_scores(
+            reference_seed,
+            max_seed_passages=100,
+            ref_decay=1.0,
+        ) if uses_reference else {}
+
+        dense_n = minmax_normalize(dense)
+        bm25_n = minmax_normalize(bm25)
+        graph_n = minmax_normalize(graph)
+        ref_n = minmax_normalize(ref)
+
+        all_pids = {
+            pid
+            for pid in (set(dense_n) | set(bm25_n) | set(graph_n) | set(ref_n))
+            if self._has_retrievable_text(pid)
+        }
+        final_scores = {}
+        adjusted_graph_n = {}
+        for pid in all_pids:
+            graph_score = graph_n.get(pid, 0.0)
+            if graph_score > 0 and dense_n.get(pid, 0.0) == 0 and bm25_n.get(pid, 0.0) == 0:
+                graph_score *= graph_only_penalty
+            adjusted_graph_n[pid] = graph_score
+            final_score = (
+                component_weights["dense"] * dense_n.get(pid, 0.0)
+                + component_weights["bm25"] * bm25_n.get(pid, 0.0)
+                + component_weights["graph"] * graph_score
+                + component_weights["reference"] * ref_n.get(pid, 0.0)
+            )
+            if final_score > 0.0:
+                final_scores[pid] = final_score
+
+        ranked = sorted(final_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+        results = []
+        for pid, score in ranked:
+            p = self.passage_by_id.get(pid, {})
+            results.append({
+                "passage_id": pid,
+                "score": round(float(score), 6),
+                "score_components": {
+                    "dense": round(dense_n.get(pid, 0.0), 6),
+                    "bm25": round(bm25_n.get(pid, 0.0), 6),
+                    "graph": round(adjusted_graph_n.get(pid, 0.0), 6),
+                    "reference": round(ref_n.get(pid, 0.0), 6),
+                },
+                "document_number": p.get("document_number"),
+                "document_id": p.get("document_id"),
+                "package_id": p.get("package_id"),
+                "path_text": p.get("path_text"),
+                "passage_kind": p.get("passage_kind"),
+                "unit_type": p.get("unit_type"),
+                "text": p.get("passage_text") or "",
+                "entities": self.passage_to_entities.get(pid, [])[:20],
+            })
+
+        return {
+            "query": query,
+            "activated_entities": [
+                {
+                    "entity_id": eid,
+                    "score": round(float(score), 6),
+                    "canonical": (self.entity_by_id.get(eid) or {}).get("canonical"),
+                    "label": (self.entity_by_id.get(eid) or {}).get("label"),
+                }
+                for eid, score in activated_entities.items()
+            ],
+            "entity_evidence": entity_evidence[:50],
+            "weights": component_weights,
+            "graph_only_penalty": graph_only_penalty,
+            "results": results,
+            "debug": {
+                "used_components": {
+                    "dense": needs_dense,
+                    "bm25": needs_bm25,
+                    "graph": needs_graph,
+                    "reference": uses_reference,
+                },
+                "reference_seed_weights": reference_seed_weights,
+                "dense_candidates": len(dense),
+                "bm25_candidates": len(bm25),
+                "graph_candidates": len(graph),
+                "reference_candidates": len(ref),
+                "final_candidates": len(final_scores),
+            },
         }
 
         query_vec = self._encode_query(query)
@@ -203,13 +338,17 @@ class LinearRAGRetriever:
         # Reference expansion nên xuất phát từ cả lexical candidates và graph candidates.
         # Nhiều passage có dạng "theo quy định tại Điều..." được BM25 bắt rất tốt,
         # nhưng nếu chỉ expand từ graph thì passage đích khó được kéo lên.
+        reference_seed_weights = reference_seed_weights or {"bm25": 0.7, "graph": 0.3}
         reference_seed = defaultdict(float)
 
+        for pid, s in dense.items():
+            reference_seed[pid] += float(reference_seed_weights.get("dense", 0.0)) * float(s)
+
         for pid, s in bm25.items():
-            reference_seed[pid] += 0.7 * float(s)
+            reference_seed[pid] += float(reference_seed_weights.get("bm25", 0.0)) * float(s)
 
         for pid, s in graph.items():
-            reference_seed[pid] += 0.3 * float(s)
+            reference_seed[pid] += float(reference_seed_weights.get("graph", 0.0)) * float(s)
 
         ref = self.reference_expand_scores(reference_seed, max_seed_passages=100,
                                            ref_decay=1.0) if use_reference_expansion else {}
