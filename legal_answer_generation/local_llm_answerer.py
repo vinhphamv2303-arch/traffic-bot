@@ -9,6 +9,7 @@ from typing import Any
 
 
 INSUFFICIENT_CONTEXT_ANSWER = "Không tìm thấy căn cứ đủ rõ trong tài liệu được truy xuất."
+PROMPT_VERSION = "extractive_multi_agent_v1"
 
 SYSTEM_PROMPT = f"""Bạn là trợ lý pháp lý chuyên về giao thông đường bộ Việt Nam.
 
@@ -31,6 +32,42 @@ QUY TẮC BẮT BUỘC:
 ĐỊNH DẠNG ĐẦU RA BẮT BUỘC:
 Trả lời: <câu trả lời ngắn gọn, trực tiếp>
 Dựa theo: <điều, khoản, tên văn bản/đường dẫn pháp lý liên quan>
+"""
+
+EXTRACTIVE_MULTI_AGENT_SYSTEM_PROMPT = f"""Bạn là hệ thống trả lời pháp lý chuyên về giao thông đường bộ Việt Nam.
+
+Bạn phải vận hành như 3 agent nội bộ, nhưng KHÔNG được in quá trình làm việc:
+
+AGENT 1 - Query Decomposer:
+- Tách câu hỏi thành từng ý cần trả lời.
+- Nếu câu hỏi có "và", "đồng thời", "nếu... thì...", "mức phạt", "trừ điểm", "tước giấy phép", phải xem là nhiều ý.
+
+AGENT 2 - Evidence Extractor:
+- Chỉ dùng CONTEXT.
+- Tìm và CHÉP NGUYÊN VĂN cụm chứa đáp án trực tiếp cho từng ý.
+- Ưu tiên passage chứa nội dung trực tiếp, không ưu tiên passage chỉ nói "theo quy định tại..." nếu passage đích có nội dung.
+- Với số liệu, mức phạt, thời hạn, điều kiện, phải giữ đầy đủ từ giới hạn và đơn vị:
+  "không quá", "tối đa", "tối thiểu", "ít nhất", "từ ... đến ...", "trừ ... điểm", "tước ... từ ... đến ...".
+- Không được rút gọn "không quá 04 giờ" thành "04 giờ".
+- Không được rút gọn câu có/không thành chỉ "Có" hoặc "Không"; phải chép cụm hành vi/điều kiện đi kèm.
+
+AGENT 3 - Answer Composer:
+- Viết câu trả lời ngắn, trực tiếp, nhưng phải chứa nguyên văn các cụm đáp án đã trích.
+- Nếu câu hỏi nhiều ý, trả lời bằng các bullet, mỗi bullet một ý.
+- Nếu chỉ thiếu căn cứ cho một ý, ghi rõ ý đó không tìm thấy căn cứ; không được phủ định toàn bộ câu hỏi nếu các ý khác có căn cứ.
+- Không dùng kiến thức ngoài CONTEXT.
+- Không trích dẫn căn cứ không được dùng.
+
+Nếu CONTEXT không chứa bất kỳ căn cứ đủ rõ nào để trả lời, trả lời đúng câu:
+"{INSUFFICIENT_CONTEXT_ANSWER}"
+
+ĐỊNH DẠNG ĐẦU RA BẮT BUỘC:
+Trả lời:
+- <ý 1, chứa nguyên văn cụm đáp án trực tiếp>
+- <ý 2 nếu có>
+Dựa theo:
+- <điều/khoản/điểm, văn bản hoặc đường dẫn pháp lý liên quan>
+- <căn cứ tiếp theo nếu có>
 """
 
 
@@ -151,9 +188,10 @@ def format_context(
     return "\n\n".join(blocks)
 
 
-def build_prompt(question: str, context: str) -> list[dict[str, str]]:
+def build_prompt(question: str, context: str, answer_mode: str = "extractive_multi_agent") -> list[dict[str, str]]:
     question = repair_mojibake_text(question)
-    user_prompt = f"""Câu hỏi:
+    if answer_mode == "direct":
+        user_prompt = f"""Câu hỏi:
 {question}
 
 CONTEXT:
@@ -164,8 +202,34 @@ Hãy trả lời câu hỏi dựa trên các căn cứ trong CONTEXT.
 Trả lời: ...
 Dựa theo: ...
 """
+        return [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ]
+
+    if answer_mode != "extractive_multi_agent":
+        raise ValueError(f"Unsupported answer_mode: {answer_mode}")
+
+    user_prompt = f"""Câu hỏi:
+{question}
+
+CONTEXT:
+{context}
+
+Yêu cầu:
+1. Tự tách câu hỏi thành từng ý.
+2. Tự tìm cụm đáp án trực tiếp trong CONTEXT.
+3. Câu trả lời cuối cùng phải CHỨA NGUYÊN VĂN cụm đáp án quan trọng, đặc biệt là số liệu, mức phạt, thời hạn, điều kiện, hành vi bị cấm.
+4. Không in phần phân tích nội bộ.
+5. Chỉ in đúng định dạng:
+
+Trả lời:
+- ...
+Dựa theo:
+- ...
+"""
     return [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": EXTRACTIVE_MULTI_AGENT_SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
     ]
 
@@ -277,6 +341,7 @@ def answer_one(
     load_4bit: bool,
     dtype: str = "auto",
     device_map: str = "auto",
+    answer_mode: str = "extractive_multi_agent",
 ) -> dict[str, Any]:
     retrieval = run_retriever(
         retriever_script=retriever_script,
@@ -295,6 +360,7 @@ def answer_one(
         return {
             "query": repair_mojibake_text(query),
             "model": model_name,
+            "answer_mode": answer_mode,
             "answer": INSUFFICIENT_CONTEXT_ANSWER,
             "context_used": "",
             "retrieval": retrieval,
@@ -306,7 +372,7 @@ def answer_one(
         dtype=dtype,
         device_map=device_map,
     )
-    messages = build_prompt(query, context)
+    messages = build_prompt(query, context, answer_mode=answer_mode)
 
     answer = generate_answer(
         tokenizer=tokenizer,
@@ -319,6 +385,7 @@ def answer_one(
     return {
         "query": repair_mojibake_text(query),
         "model": model_name,
+        "answer_mode": answer_mode,
         "answer": answer,
         "context_used": context,
         "retrieval": retrieval,
@@ -337,6 +404,7 @@ def main() -> None:
     parser.add_argument("--load-4bit", action="store_true")
     parser.add_argument("--dtype", default="auto", choices=["auto", "float16", "bfloat16", "float32"])
     parser.add_argument("--device-map", default="auto")
+    parser.add_argument("--answer-mode", default="extractive_multi_agent", choices=["direct", "extractive_multi_agent"])
     parser.add_argument("--output", default=None)
     args = parser.parse_args()
 
@@ -351,6 +419,7 @@ def main() -> None:
         load_4bit=args.load_4bit,
         dtype=args.dtype,
         device_map=args.device_map,
+        answer_mode=args.answer_mode,
     )
 
     print(json.dumps(result, ensure_ascii=False, indent=2))
