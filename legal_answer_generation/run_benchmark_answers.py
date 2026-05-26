@@ -639,7 +639,7 @@ def main() -> None:
     parser.add_argument(
         "--pipelines",
         nargs="+",
-        default=["naive_bm25", "naive_dense", "no_embedding", "bge_m3", "minilm"],
+        default=["naive_bm25", "naive_dense", "bge_m3"],
         choices=sorted(PIPELINE_CONFIGS),
     )
     parser.add_argument(

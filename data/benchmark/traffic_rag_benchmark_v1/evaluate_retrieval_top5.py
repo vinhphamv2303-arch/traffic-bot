@@ -471,6 +471,19 @@ def main() -> None:
         type=Path,
         default=ROOT / "data/benchmark/traffic_rag_benchmark_v1/traffic_rag_benchmark_v1.jsonl",
     )
+    parser.add_argument(
+        "--models",
+        nargs="+",
+        default=["naive_bm25", "naive_dense", "bge_m3"],
+        choices=sorted(DEFAULT_RESULT_FILES),
+        help="Retrieval result keys to evaluate.",
+    )
+    parser.add_argument(
+        "--result-dir",
+        type=Path,
+        default=None,
+        help="Optional directory containing traffic_rag_retrieval_*_top5.json files.",
+    )
     parser.add_argument("--output-dir", type=Path, default=ROOT / "data/benchmark")
     parser.add_argument("--ks", type=int, nargs="+", default=[1, 3, 5])
     args = parser.parse_args()
@@ -483,6 +496,8 @@ def main() -> None:
             "benchmark": str(args.benchmark),
             "question_count": len(benchmark_rows),
             "ks": args.ks,
+            "models": args.models,
+            "result_dir": str(args.result_dir) if args.result_dir else None,
             "notes": {
                 "doc_metrics": "Compare retrieved document_number against gold_doc_numbers.",
                 "citation_metrics": "Heuristic match of gold citation components in path_text + text.",
@@ -493,7 +508,9 @@ def main() -> None:
     }
     summary_rows = []
 
-    for model_key, path in DEFAULT_RESULT_FILES.items():
+    for model_key in args.models:
+        default_path = DEFAULT_RESULT_FILES[model_key]
+        path = args.result_dir / default_path.name if args.result_dir else default_path
         if not path.exists():
             print(f"skip missing {model_key}: {path}")
             continue
