@@ -144,7 +144,7 @@ def match_all_sentence_packages(sentences_root, gazetteer_root, output_root):
         write_jsonl(out_dir / "entity_mentions.jsonl", links)
         write_jsonl(out_dir / "sentences_with_entities.jsonl", sentence_rows)
         pkg_summary = summarize(pkg, len(sentences), links)
-        write_json(out_dir / "entity_link_summary.json", pkg_summary)
+        write_json(out_dir / "entity_summary.json", pkg_summary)
 
         global_summary["packages"][pkg] = pkg_summary
         global_summary["sentence_count"] += pkg_summary["sentence_count"]
@@ -156,5 +156,5 @@ def match_all_sentence_packages(sentences_root, gazetteer_root, output_root):
 
     global_summary["by_label"] = dict(sorted(global_summary["by_label"].items()))
     write_jsonl(out_root / "all_entity_mentions.jsonl", all_links)
-    write_json(out_dir / "entity_summary.json", pkg_summary)
+    write_json(out_root / "entity_summary.json", global_summary)
     return global_summary

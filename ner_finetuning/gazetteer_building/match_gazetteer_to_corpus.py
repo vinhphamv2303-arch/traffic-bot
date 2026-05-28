@@ -13,7 +13,7 @@ def main():
     print(f"Packages: {summary['package_count']}")
     print(f"Sentences: {summary['sentence_count']}")
     print(f"Sentences with entities: {summary['sentence_with_entity_count']}")
-    print(f"Entity links: {summary['entity_link_count']}")
+    print(f"Entities: {summary['entity_count']}")
     print(f"Output: {args.output}")
 
 if __name__ == "__main__":
