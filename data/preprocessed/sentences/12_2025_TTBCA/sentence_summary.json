@@ -1,0 +1,32 @@
+{
+  "package_id": "12_2025_TTBCA",
+  "sentence_count": 2446,
+  "by_sentence_type": {
+    "legal_sentence": 1765,
+    "appendix_table_sentence": 119,
+    "form_table_sentence": 37,
+    "form_field_sentence": 81,
+    "table_row_sentence": 444
+  },
+  "by_unit_type": {
+    "chuong": 7,
+    "khoan": 168,
+    "dieu": 39,
+    "diem": 361,
+    "text": 72,
+    "form_summary": 31,
+    "attachment_summary": 22,
+    "embedded_form_title": 13,
+    "appendix_table": 119,
+    "appendix_section_alpha": 18,
+    "appendix_section_roman": 44,
+    "appendix_item_decimal": 561,
+    "appendix_paragraph": 164,
+    "form_text": 79,
+    "form_table": 37,
+    "form_field": 81,
+    "table_row": 444,
+    "appendix_point": 112,
+    "appendix_bullet": 74
+  }
+}

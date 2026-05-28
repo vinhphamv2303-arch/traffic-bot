@@ -1,4 +1,3 @@
-\
 from __future__ import annotations
 
 import csv
@@ -10,7 +9,6 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Tuple
 
-
 LABELS = [
     "ACTOR",
     "BEHAVIOR",
@@ -20,7 +18,6 @@ LABELS = [
     "VEHICLE",
     "VEHICLE_CONDITION_OR_EQUIPMENT",
 ]
-
 
 LABEL_DESCRIPTIONS = {
     "ACTOR": "actor",
@@ -74,12 +71,38 @@ def collapse_ws(text: str) -> str:
 
 def iter_sentence_entity_files(entities_root: str | Path) -> List[Path]:
     root = Path(entities_root)
-    if (root / "sentence_entities.jsonl").exists():
-        return [root / "sentence_entities.jsonl"]
-    files = sorted(root.glob("*/sentence_entities.jsonl"))
+
+    candidate_names = [
+        "sentences_with_entities.jsonl",  # new canonical name
+        "sentence_entities.jsonl",  # legacy name
+        "sentences_with_entity_links.jsonl",  # old gazetteer name
+    ]
+
+    for name in candidate_names:
+        if (root / name).exists():
+            return [root / name]
+
+    files = []
+    for name in candidate_names:
+        files.extend(sorted(root.glob(f"*/{name}")))
+
     if not files:
-        raise FileNotFoundError(f"No */sentence_entities.jsonl found under {root}")
-    return files
+        raise FileNotFoundError(
+            f"No sentence entity files found under {root}. "
+            f"Expected one of: {', '.join(candidate_names)}"
+        )
+
+    # Deduplicate in case multiple legacy aliases exist in the same package.
+    seen_packages = set()
+    selected = []
+    for f in files:
+        pkg = f.parent
+        if pkg in seen_packages:
+            continue
+        seen_packages.add(pkg)
+        selected.append(f)
+
+    return selected
 
 
 def token_offsets(text: str) -> tuple[list[str], list[tuple[int, int]]]:
@@ -109,10 +132,10 @@ def entity_len(e: Dict[str, Any]) -> int:
 
 
 def clean_direct_entities(
-    text: str,
-    entities: list[dict[str, Any]],
-    keep_labels: list[str] | None = None,
-    min_weight: float = 0.0,
+        text: str,
+        entities: list[dict[str, Any]],
+        keep_labels: list[str] | None = None,
+        min_weight: float = 0.0,
 ) -> list[dict[str, Any]]:
     keep = set(keep_labels or LABELS)
     n = len(text or "")
@@ -190,7 +213,7 @@ def doc_split(rows: list[dict[str, Any]], seed: int = 42, dev_ratio: float = 0.1
         n = len(rows)
         nt = max(1, int(n * test_ratio))
         nd = max(1, int(n * dev_ratio))
-        return rows[nt+nd:], rows[nt:nt+nd], rows[:nt]
+        return rows[nt + nd:], rows[nt:nt + nd], rows[:nt]
 
     return train, dev, test
 

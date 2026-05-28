@@ -77,6 +77,7 @@ def links_for_sentence(sentence, aliases):
             "package_id": sentence.get("package_id"),
             "document_id": sentence.get("document_id"),
             "document_number": sentence.get("document_number"),
+            "document_title": sentence.get("document_title"),
             "source_type": sentence.get("source_type"),
             "attachment_id": sentence.get("attachment_id"),
             "unit_type": sentence.get("unit_type"),
@@ -133,11 +134,15 @@ def match_all_sentence_packages(sentences_root, gazetteer_root, output_root):
 
         for s in sentences:
             s_links = links_for_sentence(s, aliases)
-            sentence_rows.append({**s, "entity_links": s_links, "entity_link_count": len(s_links)})
+            sentence_rows.append({
+                **s,
+                "entities": s_links,
+                "entity_count": len(s_links),
+            })
             links.extend(s_links)
 
-        write_jsonl(out_dir / "sentence_entity_links.jsonl", links)
-        write_jsonl(out_dir / "sentences_with_entity_links.jsonl", sentence_rows)
+        write_jsonl(out_dir / "entity_mentions.jsonl", links)
+        write_jsonl(out_dir / "sentences_with_entities.jsonl", sentence_rows)
         pkg_summary = summarize(pkg, len(sentences), links)
         write_json(out_dir / "entity_link_summary.json", pkg_summary)
 
@@ -150,6 +155,6 @@ def match_all_sentence_packages(sentences_root, gazetteer_root, output_root):
         all_links.extend(links)
 
     global_summary["by_label"] = dict(sorted(global_summary["by_label"].items()))
-    write_jsonl(out_root / "all_sentence_entity_links.jsonl", all_links)
+    write_jsonl(out_root / "all_entity_mentions.jsonl", all_links)
     write_json(out_root / "entity_link_summary.json", global_summary)
     return global_summary

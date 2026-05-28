@@ -1,4 +1,4 @@
-\
+
 from __future__ import annotations
 
 import argparse
@@ -91,6 +91,7 @@ def predict_all(
                         "package_id": r.get("package_id"),
                         "document_id": r.get("document_id"),
                         "document_number": r.get("document_number"),
+                        "document_title": r.get("document_title"),
                         "path_text": r.get("path_text"),
                         **e,
                     })
@@ -103,7 +104,7 @@ def predict_all(
                 flush()
         flush()
 
-        write_jsonl(pkg_out / "sentence_entities.jsonl", rows_out)
+        write_jsonl(pkg_out / "sentences_with_entities.jsonl", rows_out)
         write_jsonl(pkg_out / "entity_mentions.jsonl", mentions)
 
         pkg_summary = {
