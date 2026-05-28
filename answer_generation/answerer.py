@@ -1398,6 +1398,13 @@ def answer_one(
         enabled=enable_query_rewrite,
     )
     route = query_preprocessing["route"]
+    if route == ROUTE_GENERAL_CHAT and memory_context:
+        route = ROUTE_TRAFFIC_LAW
+        query_preprocessing = dict(query_preprocessing)
+        query_preprocessing["route"] = ROUTE_TRAFFIC_LAW
+        query_preprocessing["rewritten_query"] = processing_query
+        query_preprocessing["chat_answer"] = ""
+        query_preprocessing["reason"] = "conversation memory follow-up override"
 
     if route == ROUTE_GENERAL_CHAT:
         answer = query_preprocessing.get("chat_answer") or ""

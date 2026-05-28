@@ -7,7 +7,11 @@ from typing import Any
 
 FOLLOWUP_PATTERNS = re.compile(
     r"\b(trường hợp này|quy định đó|văn bản đó|điều đó|khoản đó|nếu vậy|như vậy|"
-    r"nếu là|còn nếu|thế còn|hiện nay|còn áp dụng|còn hiệu lực)\b",
+    r"nếu là|còn nếu|thế còn|hiện nay|còn áp dụng|còn hiệu lực)\b"
+    r"|"
+    r"\b(còn|thế còn)\s+.{1,80}?\s+thì\s+sao\b"
+    r"|"
+    r"\bthì\s+sao\b",
     flags=re.IGNORECASE,
 )
 
