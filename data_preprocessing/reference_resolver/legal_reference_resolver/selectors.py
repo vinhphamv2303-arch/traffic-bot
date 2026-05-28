@@ -1,6 +1,6 @@
 import re
 
-from .utils import collapse_ws, extract_article_clause_point_from_path, normalize_document_number, normalize_numeric_label
+from .utils import collapse_ws, extract_article_clause_point_from_path, normalize_document_number, normalize_numeric_label, strip_accents
 
 MENTION_TYPE_PATTERNS = {
     "appendix": re.compile(r"[Pp]hụ\s+[Ll]ục\s+([IVXLCDM]+[A-Z]?|\d+[A-Z]?|[A-Z]+)", re.UNICODE),
@@ -120,10 +120,15 @@ def parse_selector(raw, source_text, mention_type=None, span=None, source_path_t
     if mention_type == "article" and sel.get("article") and not sel.get("document_number"):
         sel["scope_hint"] = sel.get("scope_hint") or "this_document"
 
+    current_package_target = _form_or_appendix_points_to_current_package(ctx, mention_type, anchor_start, anchor_end)
+    if current_package_target and mention_type == "form":
+        _drop_stale_form_appendix_hint(sel, ctx, anchor_start, anchor_end)
+
     doc_no, title_hint = None, None
     if not (mention_type == "legal_document" and sel.get("document_number")):
-        doc_no, title_hint = _extract_document_hint_for_anchor(ctx, mention_type, anchor_start, anchor_end, sel)
-        if not doc_no and not title_hint:
+        if not current_package_target:
+            doc_no, title_hint = _extract_document_hint_for_anchor(ctx, mention_type, anchor_start, anchor_end, sel)
+        if not doc_no and not title_hint and not current_package_target:
             doc_no, title_hint = _extract_amendment_target_document_hint(ctx, source_path_text or "", mention_type)
         if doc_no:
             sel["document_number"] = doc_no
@@ -136,6 +141,9 @@ def parse_selector(raw, source_text, mention_type=None, span=None, source_path_t
     elif "phụ lục này" in low:
         sel["scope_hint"] = "this_attachment"
     elif "ban hành kèm theo" in low:
+        sel["scope_hint"] = "same_package"
+
+    if current_package_target:
         sel["scope_hint"] = "same_package"
 
     _apply_selector_granularity(sel, mention_type)
@@ -309,6 +317,44 @@ def _extract_document_hint_for_anchor(ctx, mention_type, anchor_start, anchor_en
     if doc_no:
         return doc_no, None
     return None, _extract_document_title_hint(segment)
+
+def _form_or_appendix_points_to_current_package(ctx, mention_type, anchor_start, anchor_end):
+    if mention_type not in {"form", "appendix"}:
+        return False
+    if anchor_start is None or anchor_end is None:
+        segment = ctx or ""
+    else:
+        segment = (ctx or "")[anchor_start: min(len(ctx or ""), anchor_end + 260)]
+    low = strip_accents(segment or "", keep_dd=False).lower()
+    if "ban hanh kem theo" not in low:
+        return False
+    current_doc_terms = (
+        "thong tu nay",
+        "nghi dinh nay",
+        "quyet dinh nay",
+        "nghi quyet nay",
+        "luat nay",
+        "bo luat nay",
+        "van ban nay",
+    )
+    return any(term in low for term in current_doc_terms)
+
+def _drop_stale_form_appendix_hint(sel, ctx, anchor_start, anchor_end):
+    appendix_label = sel.get("appendix_label")
+    if not appendix_label or anchor_start is None or anchor_end is None:
+        return
+    before = ctx[:anchor_start]
+    after = ctx[anchor_end: min(len(ctx), anchor_end + 220)]
+    before_low = strip_accents(before, keep_dd=False).lower()
+    after_low = strip_accents(after, keep_dd=False).lower()
+    app_key = strip_accents(appendix_label, keep_dd=False).lower()
+
+    if app_key not in before_low:
+        return
+    if MENTION_TYPE_PATTERNS["appendix"].search(after):
+        return
+    if any(term in after_low for term in ("ban hanh kem theo phu luc", "ban hanh kem theo")):
+        sel["appendix_label"] = None
 
 def _extract_amendment_target_document_hint(ctx, source_path_text, mention_type):
     if mention_type not in {"article", "clause", "point"}:

@@ -213,6 +213,32 @@ def normalize_numeric_label(label):
         return f"{int(m.group(1))}{suffix}"
     return canonical_key(s)
 
+def normalize_form_number_keys(*texts):
+    """
+    Extract form numbers from explicit "Mau so ..." surfaces.
+
+    This is stricter than normalize_numeric_label() for long attachment metadata:
+    a title like "QCVN 86:2015/BGTVT ... Mau so 06 ..." must index form 06,
+    not the first unrelated number 86.
+    """
+    out = set()
+    for text in texts:
+        if not text:
+            continue
+        raw = str(text)
+        ascii_text = strip_accents(raw, keep_dd=False).lower()
+        for m in re.finditer(r"\bmau\s*(?:so)?\s*0*(\d+)([a-z]?)\b", ascii_text):
+            suffix = m.group(2) or ""
+            out.add(f"{int(m.group(1))}{suffix}")
+
+        basename = raw.replace("\\", "/").rsplit("/", 1)[-1]
+        basename_ascii = strip_accents(basename, keep_dd=False).lower()
+        m = re.match(r"\s*0*(\d+)([a-z]?)\b", basename_ascii)
+        if m:
+            suffix = m.group(2) or ""
+            out.add(f"{int(m.group(1))}{suffix}")
+    return {x for x in out if x}
+
 def pad_numeric_label(label, width=2):
     m = re.search(r"(\d+)", str(label or ""))
     if not m:

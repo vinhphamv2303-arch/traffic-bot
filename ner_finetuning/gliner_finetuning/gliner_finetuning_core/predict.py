@@ -28,8 +28,12 @@ def predict_all(
     batch_size: int = 16,
 ) -> Dict[str, Any]:
     """
-    Run GLiNER on sentence_entities.jsonl files. It only uses the text fields,
-    so you can pass either gazetteer_pseudo_labels or any root containing */sentence_entities.jsonl.
+    Run GLiNER on sentence rows with entity annotations.
+
+    It only uses the text fields, so the input root can contain
+    */sentences_with_entities.jsonl. Legacy names such as
+    */sentence_entities.jsonl and */sentences_with_entity_links.jsonl
+    are still supported by iter_sentence_entity_files().
     """
     try:
         from gliner import GLiNER

@@ -148,5 +148,5 @@ def build_hybrid_entity_links(gazetteer_entities_root: str | Path, gliner_entiti
         "by_label": dict(sorted(by_label.items())), "by_source": dict(sorted(by_source.items())),
         "by_scope": dict(sorted(by_scope.items())), "include_inherited": include_inherited,
     }
-    write_json(output_dir / "entity_links_summary.json", summary)
+    write_json(output_dir / "entity_summary.json", summary)
     return summary

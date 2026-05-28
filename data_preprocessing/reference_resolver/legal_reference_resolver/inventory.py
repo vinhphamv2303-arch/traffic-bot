@@ -2,7 +2,7 @@
 import re
 from collections import defaultdict
 
-from .utils import canonical_key, doc_number_key, normalize_numeric_label, normalized_terms, point_key, read_json, read_jsonl, term_overlap_score
+from .utils import canonical_key, doc_number_key, normalize_form_number_keys, normalize_numeric_label, normalized_terms, point_key, read_json, read_jsonl, term_overlap_score
 
 class LegalInventory:
     """
@@ -99,11 +99,16 @@ class LegalInventory:
                 if key:
                     self.attachments_by_label[(package_id, key)].append(rec)
 
-            # Form-like attachments: index by normalized number and by title/label.
+            # Form-like attachments: index explicit form numbers from label, title,
+            # and filename. Some files have a noisy label (for example a QCVN code)
+            # while the title/source filename still contains "Mau so 06".
             if kind in {"form", "appendix_form"}:
                 self.forms_by_package[package_id].append(rec)
-                num_key = normalize_numeric_label(label or title)
-                if num_key:
+                number_keys = normalize_form_number_keys(label, title, att.get("source_file"), att.get("parsed_dir"))
+                fallback_num_key = normalize_numeric_label(label or title)
+                if fallback_num_key and canonical_key(label or title).startswith(("mauso", "mau")):
+                    number_keys.add(fallback_num_key)
+                for num_key in number_keys:
                     self.forms_by_number[(package_id, num_key)].append(rec)
                 for key in {canonical_key(label), canonical_key(title)}:
                     if key:
@@ -213,11 +218,21 @@ class LegalInventory:
             if not title_key:
                 continue
 
+            query_terms = set(normalized_terms(title_hint or ""))
+            title_terms = set(normalized_terms(title))
+            overlap = query_terms & title_terms
+            query_coverage = len(overlap) / len(query_terms) if query_terms else 0.0
+
             score = term_overlap_score(title_hint, title)
             if title_key in hint_key:
                 score = max(score, 0.98)
             elif hint_term_count >= 3 and hint_key in title_key and self._compatible_title_hint_kind(hint_key, title_key):
                 score = max(score, 0.93)
+            elif query_terms and query_coverage < 0.75:
+                # Avoid a short title such as "Luat Duong bo" competing with
+                # the more specific hint "Luat Giao thong duong bo" just because
+                # all of the short title's terms overlap.
+                score = min(score, 0.78)
             if score >= min_score:
                 scored.append((doc, round(score, 4)))
 

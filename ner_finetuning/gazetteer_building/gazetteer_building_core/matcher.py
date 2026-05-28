@@ -103,7 +103,7 @@ def summarize(package_id, sentence_count, links):
         "package_id": package_id,
         "sentence_count": sentence_count,
         "sentence_with_entity_count": len(sent_ids),
-        "entity_link_count": len(links),
+        "entity_count": len(links),
         "by_label": dict(sorted(by_label.items())),
         "top_entities": top,
     }
@@ -118,7 +118,7 @@ def match_all_sentence_packages(sentences_root, gazetteer_root, output_root):
         "package_count": len(package_dirs),
         "sentence_count": 0,
         "sentence_with_entity_count": 0,
-        "entity_link_count": 0,
+        "entity_count": 0,
         "by_label": {},
         "packages": {},
         "gazetteer_root": str(gazetteer_root),
@@ -149,12 +149,12 @@ def match_all_sentence_packages(sentences_root, gazetteer_root, output_root):
         global_summary["packages"][pkg] = pkg_summary
         global_summary["sentence_count"] += pkg_summary["sentence_count"]
         global_summary["sentence_with_entity_count"] += pkg_summary["sentence_with_entity_count"]
-        global_summary["entity_link_count"] += pkg_summary["entity_link_count"]
+        global_summary["entity_count"] += pkg_summary["entity_count"]
         for label, count in pkg_summary["by_label"].items():
             global_summary["by_label"][label] = global_summary["by_label"].get(label, 0) + count
         all_links.extend(links)
 
     global_summary["by_label"] = dict(sorted(global_summary["by_label"].items()))
     write_jsonl(out_root / "all_entity_mentions.jsonl", all_links)
-    write_json(out_root / "entity_link_summary.json", global_summary)
+    write_json(out_dir / "entity_summary.json", pkg_summary)
     return global_summary

@@ -10,6 +10,7 @@ from .utils import (
     find_package_dirs,
     md5_text,
     normalize_document_number,
+    normalize_form_number_keys,
     normalize_numeric_label,
     point_key,
     read_jsonl,
@@ -198,6 +199,11 @@ class ReferenceResolver:
 
         target_package_id = package_id
         doc_no = sel.get("document_number")
+        if doc_no and sel.get("scope_hint") in {"same_package", "this_document"}:
+            # In sentences like "replace appendix X of document A by Mau so 01
+            # issued with this Circular", the external document number belongs
+            # to the replaced appendix, not to the new form target.
+            doc_no = None
         if doc_no:
             current_doc = self.inventory.main_document(package_id) or {}
             current_doc_no = current_doc.get("document_number")
@@ -260,8 +266,8 @@ class ReferenceResolver:
             source_file_key = canonical_key(h.get("source_file") or "")
 
             # Exact normalized numeric match.
-            h_num = normalize_numeric_label(f"{h.get('label') or ''} {h.get('title') or ''}")
-            if num_key and h_num == num_key:
+            h_nums = self.form_number_keys(h)
+            if num_key and num_key in h_nums:
                 score += 0.12
                 if single_number_hit:
                     score = max(score, 0.93)
@@ -535,6 +541,15 @@ class ReferenceResolver:
             labels.append(att.get("parent_appendix_label"))
         labels.extend(att.get("parent_appendix_labels") or [])
         return {canonical_key(x) for x in labels if x}
+
+    @staticmethod
+    def form_number_keys(att):
+        return normalize_form_number_keys(
+            att.get("label") or "",
+            att.get("title") or "",
+            att.get("source_file") or "",
+            att.get("parsed_dir") or "",
+        )
 
     @staticmethod
     def input_inconsistency(m):
