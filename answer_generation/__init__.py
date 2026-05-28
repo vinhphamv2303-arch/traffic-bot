@@ -17,14 +17,25 @@ from .answerer import (
     repair_mojibake_text,
     run_retriever,
 )
+from .conversation_memory import (
+    ConversationMemory,
+    build_memory_context,
+    empty_memory,
+    expand_query_with_memory,
+    update_memory_after_answer,
+)
 
 __all__ = [
     "INSUFFICIENT_CONTEXT_ANSWER",
     "PROMPT_VERSION",
+    "ConversationMemory",
     "answer_one",
     "apply_rule_based_query_rewrite",
+    "build_memory_context",
     "build_general_chat_messages",
     "build_prompt",
+    "empty_memory",
+    "expand_query_with_memory",
     "format_context",
     "generate_answer",
     "generate_answer_api",
@@ -36,4 +47,5 @@ __all__ = [
     "repair_mojibake",
     "repair_mojibake_text",
     "run_retriever",
+    "update_memory_after_answer",
 ]

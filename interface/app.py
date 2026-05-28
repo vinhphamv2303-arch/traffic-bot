@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from answer_generation.conversation_memory import empty_memory  # noqa: E402
 from interface.rag_pipeline import DEFAULT_MODELS, PIPELINES, run_demo_answer  # noqa: E402
 
 
@@ -18,6 +19,14 @@ st.set_page_config(
     page_icon="TL",
     layout="wide",
 )
+
+
+if "conversation_memory" not in st.session_state:
+    st.session_state.conversation_memory = empty_memory().to_dict()
+
+
+def reset_conversation_memory() -> None:
+    st.session_state.conversation_memory = empty_memory().to_dict()
 
 
 def render_retrieved_passages(result: dict) -> None:
@@ -90,6 +99,17 @@ with st.sidebar:
         value=True,
         help="Dùng LLM để nhận diện câu hỏi ngoài phạm vi và rewrite cách hỏi đời thường trước retrieval.",
     )
+    enable_memory = st.checkbox(
+        "Ghi nhớ ngữ cảnh hội thoại",
+        value=True,
+        help="Dùng văn bản, điều khoản và ràng buộc ở lượt trước để hiểu các câu hỏi nối tiếp như 'trường hợp này', 'còn xe máy thì sao'.",
+    )
+    if st.button("Xoá ngữ cảnh hội thoại"):
+        reset_conversation_memory()
+        st.rerun()
+    with st.expander("Memory hiện tại", expanded=False):
+        st.json(st.session_state.conversation_memory, expanded=False)
+
     top_k = st.slider("Top-k passages", min_value=1, max_value=10, value=5)
     candidate_k = st.slider("Candidate-k", min_value=50, max_value=500, value=300, step=50)
     max_context_passages = st.slider("Số passage đưa vào LLM", min_value=1, max_value=10, value=5)
@@ -129,7 +149,10 @@ if run_button:
                 max_chars_per_passage=max_chars_per_passage,
                 enable_query_router=enable_query_router,
                 max_new_tokens=max_new_tokens,
+                conversation_memory=st.session_state.conversation_memory if enable_memory else None,
             )
+            if enable_memory:
+                st.session_state.conversation_memory = result.get("conversation_memory") or st.session_state.conversation_memory
     except Exception as exc:
         st.error(str(exc))
         st.stop()
@@ -143,8 +166,16 @@ if run_button:
         if result.get("rewritten_query"):
             st.write("Query sau rewrite:")
             st.code(result["rewritten_query"], language="text")
+        if result.get("memory_context"):
+            st.write("Ngữ cảnh hội thoại được dùng:")
+            st.code(result["memory_context"], language="text")
+        if result.get("expanded_query"):
+            with st.expander("Query sau khi ghép memory", expanded=False):
+                st.code(result["expanded_query"], language="text")
         with st.expander("Chi tiết route/rewrite", expanded=False):
             st.json(result.get("query_preprocessing") or {}, expanded=False)
+        with st.expander("Memory sau lượt này", expanded=False):
+            st.json(result.get("conversation_memory") or {}, expanded=False)
 
         st.subheader("Passage retrieval")
         render_retrieved_passages(result)

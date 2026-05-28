@@ -104,6 +104,7 @@ def run_demo_answer(
     enable_query_router: bool = True,
     max_new_tokens: int = 512,
     temperature: float = 0.0,
+    conversation_memory: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     config = PIPELINES[pipeline_key]
     validate_runtime_paths(config)
@@ -132,6 +133,7 @@ def run_demo_answer(
         max_chars_per_passage=max_chars_per_passage,
         max_new_tokens=max_new_tokens,
         temperature=temperature,
+        conversation_memory=conversation_memory,
     )
     result["pipeline"] = pipeline_key
     result["pipeline_display_name"] = config.display_name

@@ -13,6 +13,14 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from answer_generation.conversation_memory import (
+    ConversationMemory,
+    empty_memory,
+    expand_query_with_memory,
+    is_reset_query,
+    update_memory_after_answer,
+)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 EFFECTIVITY_ROOT = ROOT / "data" / "preprocessed" / "effectivity"
@@ -177,6 +185,34 @@ def repair_mojibake(value: Any) -> Any:
     if isinstance(value, dict):
         return {k: repair_mojibake(v) for k, v in value.items()}
     return value
+
+
+def _coerce_conversation_memory(memory: ConversationMemory | dict[str, Any] | None) -> ConversationMemory | None:
+    if memory is None:
+        return None
+    if isinstance(memory, ConversationMemory):
+        return memory
+    if not isinstance(memory, dict):
+        return None
+
+    try:
+        turn_count = int(memory.get("turn_count") or 0)
+    except (TypeError, ValueError):
+        turn_count = 0
+
+    return ConversationMemory(
+        topic=str(memory.get("topic") or ""),
+        last_rewritten_query=str(memory.get("last_rewritten_query") or ""),
+        entities=list(memory.get("entities") or []),
+        documents=list(memory.get("documents") or []),
+        passages=list(memory.get("passages") or []),
+        constraints=dict(memory.get("constraints") or {}),
+        turn_count=turn_count,
+    )
+
+
+def _memory_dict(memory: ConversationMemory | None) -> dict[str, Any]:
+    return (memory or empty_memory()).to_dict()
 
 
 def load_dotenv(path: Path | None = None) -> None:
@@ -1307,21 +1343,28 @@ def answer_one(
     temperature: float = 0.0,
     top_p: float = 0.9,
     repetition_penalty: float = 1.05,
+    conversation_memory: ConversationMemory | dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    query = repair_mojibake_text(query).strip()
+    original_query = repair_mojibake_text(query).strip()
+    memory = _coerce_conversation_memory(conversation_memory)
+    processing_query, memory_context = expand_query_with_memory(original_query, memory)
+    processing_query = repair_mojibake_text(processing_query).strip()
     tokenizer = None
     model = None
 
-    early_effectivity_answer = _direct_effectivity_answer(query)
+    early_effectivity_answer = _direct_effectivity_answer(processing_query)
     if early_effectivity_answer:
+        updated_memory = update_memory_after_answer(memory, original_query, processing_query, None)
         return {
-            "query": query,
-            "rewritten_query": query,
+            "query": original_query,
+            "expanded_query": processing_query if memory_context else "",
+            "memory_context": memory_context,
+            "rewritten_query": processing_query,
             "route": ROUTE_TRAFFIC_LAW,
             "route_reason": "structured effectivity fast-path",
             "query_preprocessing": {
                 "route": ROUTE_TRAFFIC_LAW,
-                "rewritten_query": query,
+                "rewritten_query": processing_query,
                 "reason": "structured effectivity fast-path",
                 "chat_answer": "",
                 "raw_response": "",
@@ -1333,6 +1376,7 @@ def answer_one(
             "answer": early_effectivity_answer,
             "context_used": "Structured effectivity metadata from data/preprocessed/effectivity.",
             "retrieval": None,
+            "conversation_memory": _memory_dict(updated_memory),
         }
 
     if mode == "local" and enable_query_rewrite:
@@ -1344,7 +1388,7 @@ def answer_one(
         )
 
     query_preprocessing = preprocess_user_query(
-        query=query,
+        query=processing_query,
         model_name=model_name,
         mode=mode,
         tokenizer=tokenizer,
@@ -1366,7 +1410,7 @@ def answer_one(
                     device_map=device_map,
                 )
             answer = generate_answer_with_backend(
-                messages=build_general_chat_messages(query),
+                messages=build_general_chat_messages(original_query),
                 model_name=model_name,
                 mode=mode,
                 tokenizer=tokenizer,
@@ -1378,8 +1422,11 @@ def answer_one(
                 top_p=top_p,
                 repetition_penalty=repetition_penalty,
             )
+        updated_memory = empty_memory() if is_reset_query(original_query) else memory
         return {
-            "query": query,
+            "query": original_query,
+            "expanded_query": processing_query if memory_context else "",
+            "memory_context": memory_context,
             "rewritten_query": "",
             "route": route,
             "route_reason": query_preprocessing.get("reason", ""),
@@ -1391,13 +1438,18 @@ def answer_one(
             "answer": answer,
             "context_used": "",
             "retrieval": None,
+            "conversation_memory": _memory_dict(updated_memory),
         }
 
-    direct_effectivity_answer = _direct_effectivity_answer(query)
+    direct_effectivity_answer = _direct_effectivity_answer(processing_query)
     if direct_effectivity_answer:
+        retrieval_query = query_preprocessing.get("rewritten_query") or processing_query
+        updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, None)
         return {
-            "query": query,
-            "rewritten_query": query_preprocessing.get("rewritten_query") or query,
+            "query": original_query,
+            "expanded_query": processing_query if memory_context else "",
+            "memory_context": memory_context,
+            "rewritten_query": retrieval_query,
             "route": route,
             "route_reason": query_preprocessing.get("reason", ""),
             "query_preprocessing": query_preprocessing,
@@ -1408,10 +1460,11 @@ def answer_one(
             "answer": direct_effectivity_answer,
             "context_used": "Structured effectivity metadata from data/preprocessed/effectivity.",
             "retrieval": None,
+            "conversation_memory": _memory_dict(updated_memory),
         }
 
-    retrieval_query = apply_rule_based_query_rewrite(query_preprocessing.get("rewritten_query") or query)
-    retrieval_top_k = max(top_k, 40) if needs_retrieval_postprocess(query, retrieval_query) else top_k
+    retrieval_query = apply_rule_based_query_rewrite(query_preprocessing.get("rewritten_query") or processing_query)
+    retrieval_top_k = max(top_k, 40) if needs_retrieval_postprocess(original_query, retrieval_query) else top_k
     retrieval = run_retriever(
         retriever_script=retriever_script,
         index_dir=index_dir,
@@ -1427,7 +1480,7 @@ def answer_one(
         semantic_entity_top_k=semantic_entity_top_k,
         semantic_entity_min_score=semantic_entity_min_score,
     )
-    retrieval = postprocess_retrieval_for_query(retrieval, query, retrieval_query, top_k=top_k)
+    retrieval = postprocess_retrieval_for_query(retrieval, original_query, retrieval_query, top_k=top_k)
     context = format_context(
         retrieval.get("results", []),
         max_passages=max_context_passages,
@@ -1436,7 +1489,8 @@ def answer_one(
     if not context.strip():
         answer = INSUFFICIENT_CONTEXT_ANSWER
     else:
-        messages = build_prompt(query, context, answer_mode=answer_mode)
+        prompt_query = processing_query if memory_context else original_query
+        messages = build_prompt(prompt_query, context, answer_mode=answer_mode)
         if mode == "local":
             if tokenizer is None or model is None:
                 tokenizer, model = load_model(
@@ -1468,8 +1522,11 @@ def answer_one(
                 top_p=top_p,
             )
 
+    updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, retrieval)
     return {
-        "query": query,
+        "query": original_query,
+        "expanded_query": processing_query if memory_context else "",
+        "memory_context": memory_context,
         "rewritten_query": retrieval_query,
         "route": route,
         "route_reason": query_preprocessing.get("reason", ""),
@@ -1481,4 +1538,5 @@ def answer_one(
         "answer": answer,
         "context_used": context,
         "retrieval": retrieval,
+        "conversation_memory": _memory_dict(updated_memory),
     }
