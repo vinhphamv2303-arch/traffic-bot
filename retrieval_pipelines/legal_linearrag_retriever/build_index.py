@@ -1,6 +1,12 @@
 import argparse
 import sys
-from legal_linearrag_retriever import build_index
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from retrieval_pipelines.legal_linearrag_retriever.legal_linearrag_retriever import build_index
 
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -11,7 +17,7 @@ def main():
     ap = argparse.ArgumentParser(description="Build LinearRAG-style hybrid retrieval index.")
     ap.add_argument("--graph-root", required=True)
     ap.add_argument("--gazetteer-root", required=True)
-    ap.add_argument("--output", "-o", default="./data/preprocessed/linearrag_index_v1")
+    ap.add_argument("--output", "-o", default="./data/retrieval/index_bge_m3_hybrid")
     ap.add_argument("--embedding-model", default="BAAI/bge-m3")
     ap.add_argument("--embedding-batch-size", type=int, default=64)
     ap.add_argument("--skip-embeddings", action="store_true", help="Build BM25 + graph index only.")

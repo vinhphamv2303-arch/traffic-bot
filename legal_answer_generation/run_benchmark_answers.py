@@ -12,7 +12,6 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "legal_linearrag_retriever"))
 
 from legal_answer_generation.local_llm_answerer import (  # noqa: E402
     INSUFFICIENT_CONTEXT_ANSWER,
@@ -24,11 +23,11 @@ from legal_answer_generation.local_llm_answerer import (  # noqa: E402
     repair_mojibake,
     repair_mojibake_text,
 )
-from legal_linearrag_retriever import LinearRAGRetriever  # noqa: E402
+from retrieval_pipelines.legal_linearrag_retriever.legal_linearrag_retriever import LinearRAGRetriever  # noqa: E402
 
 
 DEFAULT_BENCHMARK_PATH = ROOT / "data/benchmark/traffic_rag_benchmark_v1/traffic_rag_benchmark_v1.jsonl"
-DEFAULT_GAZETTEER_ROOT = ROOT / "data/preprocessed/gazetteers_v2"
+DEFAULT_GAZETTEER_ROOT = ROOT / "ner_finetuning/data/preprocessed/expanded_gazetteer"
 
 
 PIPELINE_CONFIGS: dict[str, dict[str, Any]] = {
@@ -36,7 +35,7 @@ PIPELINE_CONFIGS: dict[str, dict[str, Any]] = {
         "display_name": "Naive BM25 RAG",
         "output_name": "traffic_rag_retrieval_naive_bm25_top5.json",
         "retrieval_file": ROOT / "data/benchmark/traffic_rag_retrieval_naive_bm25_top5.json",
-        "index_dir": ROOT / "data/preprocessed/linearrag_index_hybrid_v2_bm25_graph_v2",
+        "index_dir": ROOT / "data/retrieval/index_bm25_graph",
         "weights": {"dense": 0.0, "bm25": 1.0, "graph": 0.0, "reference": 0.0},
         "use_reference_expansion": False,
     },
@@ -44,7 +43,7 @@ PIPELINE_CONFIGS: dict[str, dict[str, Any]] = {
         "display_name": "Naive Dense RAG (BGE-M3)",
         "output_name": "traffic_rag_retrieval_naive_dense_top5.json",
         "retrieval_file": ROOT / "data/benchmark/traffic_rag_retrieval_naive_dense_top5.json",
-        "index_dir": ROOT / "data/preprocessed/linearrag_index_hybrid_v2_full_dense",
+        "index_dir": ROOT / "data/retrieval/index_bge_m3_hybrid",
         "weights": {"dense": 1.0, "bm25": 0.0, "graph": 0.0, "reference": 0.0},
         "use_reference_expansion": False,
     },
@@ -52,21 +51,21 @@ PIPELINE_CONFIGS: dict[str, dict[str, Any]] = {
         "display_name": "No embedding",
         "output_name": "traffic_rag_retrieval_no_embedding_top5.json",
         "retrieval_file": ROOT / "data/benchmark/traffic_rag_retrieval_no_embedding_top5.json",
-        "index_dir": ROOT / "data/preprocessed/linearrag_index_hybrid_v2_bm25_graph_v2",
+        "index_dir": ROOT / "data/retrieval/index_bm25_graph",
         "weights": {"dense": 0.0, "bm25": 0.25, "graph": 0.15, "reference": 0.60},
     },
     "bge_m3": {
         "display_name": "BGE-M3 hybrid",
         "output_name": "traffic_rag_retrieval_bge_m3_top5.json",
         "retrieval_file": ROOT / "data/benchmark/traffic_rag_retrieval_bge_m3_top5.json",
-        "index_dir": ROOT / "data/preprocessed/linearrag_index_hybrid_v2_full_dense",
+        "index_dir": ROOT / "data/retrieval/index_bge_m3_hybrid",
         "weights": {"dense": 0.25, "bm25": 0.25, "graph": 0.20, "reference": 0.30},
     },
     "minilm": {
         "display_name": "MiniLM hybrid",
         "output_name": "traffic_rag_retrieval_minilm_top5.json",
         "retrieval_file": ROOT / "data/benchmark/traffic_rag_retrieval_minilm_top5.json",
-        "index_dir": ROOT / "data/preprocessed/linearrag_index_hybrid_v2_minilm_cpu",
+        "index_dir": ROOT / "data/retrieval/index_minilm_hybrid",
         "weights": {"dense": 0.20, "bm25": 0.30, "graph": 0.20, "reference": 0.30},
     },
 }

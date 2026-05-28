@@ -95,8 +95,10 @@ def build_passage_records(passage_nodes: List[Dict[str, Any]]) -> List[Dict[str,
         text = p.get("passage_text") or p.get("text_preview") or ""
         if not str(text).strip():
             continue
+        document_title = p.get("document_title") or ""
         index_text = "\n".join([
             f"Van ban: {p.get('document_number') or p.get('document_id') or ''}",
+            f"Ten van ban: {document_title}",
             f"Duong dan: {p.get('path_text') or ''}",
             f"Noi dung: {text}",
         ])
@@ -104,6 +106,7 @@ def build_passage_records(passage_nodes: List[Dict[str, Any]]) -> List[Dict[str,
             "passage_id": pid,
             "document_id": p.get("document_id"),
             "document_number": p.get("document_number"),
+            "document_title": p.get("document_title"),
             "package_id": p.get("package_id"),
             "source_unit_id": p.get("source_unit_id"),
             "path_text": p.get("path_text"),

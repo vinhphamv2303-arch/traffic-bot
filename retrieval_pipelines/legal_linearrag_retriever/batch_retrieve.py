@@ -2,8 +2,13 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from legal_linearrag_retriever import LinearRAGRetriever
-from legal_linearrag_retriever.utils import write_jsonl
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from retrieval_pipelines.legal_linearrag_retriever.legal_linearrag_retriever import LinearRAGRetriever
+from retrieval_pipelines.legal_linearrag_retriever.legal_linearrag_retriever.utils import write_jsonl
 
 
 if hasattr(sys.stdout, "reconfigure"):

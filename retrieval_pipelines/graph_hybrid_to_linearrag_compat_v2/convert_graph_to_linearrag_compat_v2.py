@@ -142,6 +142,7 @@ def convert_graph(graph_root: str | Path, output: str | Path):
             "source_unit_id": n.get("source_unit_id") or pid,
             "document_id": n.get("document_id"),
             "document_number": n.get("document_number"),
+            "document_title": n.get("document_title"),
             "package_id": n.get("package_id"),
             "path_text": n.get("path_text"),
             "unit_type": n.get("unit_type"),

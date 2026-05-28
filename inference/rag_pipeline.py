@@ -9,11 +9,10 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RETRIEVER_ROOT = ROOT / "legal_linearrag_retriever"
-if str(RETRIEVER_ROOT) not in sys.path:
-    sys.path.insert(0, str(RETRIEVER_ROOT))
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from legal_linearrag_retriever import LinearRAGRetriever  # noqa: E402
+from retrieval_pipelines.legal_linearrag_retriever.legal_linearrag_retriever import LinearRAGRetriever  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -33,28 +32,28 @@ PIPELINES: dict[str, RetrievalPipelineConfig] = {
     "hybrid_cpu": RetrievalPipelineConfig(
         key="hybrid_cpu",
         display_name="Hybrid CPU: BM25 + Graph + Reference",
-        index_dir=ROOT / "data" / "preprocessed" / "linearrag_index_hybrid_v2_bm25_graph_v2",
+        index_dir=ROOT / "data" / "retrieval" / "index_bm25_graph",
         weights={"dense": 0.0, "bm25": 0.25, "graph": 0.15, "reference": 0.60},
         description="Nhanh, không cần load embedding model; phù hợp demo local.",
     ),
     "hybrid_bge_m3": RetrievalPipelineConfig(
         key="hybrid_bge_m3",
         display_name="Hybrid BGE-M3: Dense + BM25 + Graph + Reference",
-        index_dir=ROOT / "data" / "preprocessed" / "linearrag_index_hybrid_v2_full_dense",
+        index_dir=ROOT / "data" / "retrieval" / "index_bge_m3_hybrid",
         weights={"dense": 0.25, "bm25": 0.25, "graph": 0.20, "reference": 0.30},
         description="Pipeline đầy đủ nhất, nhưng lần đầu load BGE-M3 có thể chậm trên CPU.",
     ),
     "hybrid_minilm": RetrievalPipelineConfig(
         key="hybrid_minilm",
         display_name="Hybrid MiniLM CPU",
-        index_dir=ROOT / "data" / "preprocessed" / "linearrag_index_hybrid_v2_minilm_cpu",
+        index_dir=ROOT / "data" / "retrieval" / "index_minilm_hybrid",
         weights={"dense": 0.20, "bm25": 0.30, "graph": 0.20, "reference": 0.30},
         description="Có dense retrieval nhẹ hơn BGE-M3.",
     ),
     "bm25": RetrievalPipelineConfig(
         key="bm25",
         display_name="Naive BM25",
-        index_dir=ROOT / "data" / "preprocessed" / "linearrag_index_hybrid_v2_bm25_graph_v2",
+        index_dir=ROOT / "data" / "retrieval" / "index_bm25_graph",
         weights={"dense": 0.0, "bm25": 1.0, "graph": 0.0, "reference": 0.0},
         use_reference_expansion=False,
         description="Baseline từ khóa.",

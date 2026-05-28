@@ -53,7 +53,7 @@ def main() -> None:
     parser.add_argument("--pipelines", nargs="+", default=DEFAULT_PIPELINES)
     parser.add_argument("--models", nargs="+", default=DEFAULT_MODELS)
     parser.add_argument("--benchmark", type=Path, default=ROOT / "data/benchmark/traffic_rag_benchmark_v1/traffic_rag_benchmark_v1.jsonl")
-    parser.add_argument("--gazetteer-root", type=Path, default=ROOT / "data/preprocessed/gazetteers_v2")
+    parser.add_argument("--gazetteer-root", type=Path, default=ROOT / "ner_finetuning/data/preprocessed/expanded_gazetteer")
     parser.add_argument("--output-root", type=Path, default=ROOT / "data/benchmark/traffic_rag_final_three_pipeline_v1")
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--candidate-k", type=int, default=300)
