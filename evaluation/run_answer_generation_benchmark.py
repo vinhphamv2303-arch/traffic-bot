@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -13,20 +14,21 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from legal_answer_generation.local_llm_answerer import (  # noqa: E402
+from answer_generation.answerer import (  # noqa: E402
     INSUFFICIENT_CONTEXT_ANSWER,
     PROMPT_VERSION,
     build_prompt,
     format_context,
     generate_answer,
+    generate_answer_with_backend,
     load_model,
     repair_mojibake,
     repair_mojibake_text,
 )
-from retrieval_pipelines.legal_linearrag_retriever.legal_linearrag_retriever import LinearRAGRetriever  # noqa: E402
+from retrieval_pipelines_builder.legal_linearrag_retriever.legal_linearrag_retriever import LinearRAGRetriever  # noqa: E402
 
 
-DEFAULT_BENCHMARK_PATH = ROOT / "data/benchmark/traffic_rag_benchmark_v1/traffic_rag_benchmark_v1.jsonl"
+DEFAULT_BENCHMARK_PATH = ROOT / "data/benchmark/traffic_rag_gold_questions_v1/traffic_rag_gold_questions_v1.jsonl"
 DEFAULT_GAZETTEER_ROOT = ROOT / "ner_finetuning/data/preprocessed/expanded_gazetteer"
 
 
@@ -34,7 +36,7 @@ PIPELINE_CONFIGS: dict[str, dict[str, Any]] = {
     "naive_bm25": {
         "display_name": "Naive BM25 RAG",
         "output_name": "traffic_rag_retrieval_naive_bm25_top5.json",
-        "retrieval_file": ROOT / "data/benchmark/traffic_rag_retrieval_naive_bm25_top5.json",
+        "retrieval_file": ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/retrieval/traffic_rag_retrieval_naive_bm25_top5.json",
         "index_dir": ROOT / "data/retrieval/index_bm25_graph",
         "weights": {"dense": 0.0, "bm25": 1.0, "graph": 0.0, "reference": 0.0},
         "use_reference_expansion": False,
@@ -42,7 +44,7 @@ PIPELINE_CONFIGS: dict[str, dict[str, Any]] = {
     "naive_dense": {
         "display_name": "Naive Dense RAG (BGE-M3)",
         "output_name": "traffic_rag_retrieval_naive_dense_top5.json",
-        "retrieval_file": ROOT / "data/benchmark/traffic_rag_retrieval_naive_dense_top5.json",
+        "retrieval_file": ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/retrieval/traffic_rag_retrieval_naive_dense_top5.json",
         "index_dir": ROOT / "data/retrieval/index_bge_m3_hybrid",
         "weights": {"dense": 1.0, "bm25": 0.0, "graph": 0.0, "reference": 0.0},
         "use_reference_expansion": False,
@@ -50,21 +52,21 @@ PIPELINE_CONFIGS: dict[str, dict[str, Any]] = {
     "no_embedding": {
         "display_name": "No embedding",
         "output_name": "traffic_rag_retrieval_no_embedding_top5.json",
-        "retrieval_file": ROOT / "data/benchmark/traffic_rag_retrieval_no_embedding_top5.json",
+        "retrieval_file": ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/retrieval/traffic_rag_retrieval_no_embedding_top5.json",
         "index_dir": ROOT / "data/retrieval/index_bm25_graph",
         "weights": {"dense": 0.0, "bm25": 0.25, "graph": 0.15, "reference": 0.60},
     },
     "bge_m3": {
         "display_name": "BGE-M3 hybrid",
         "output_name": "traffic_rag_retrieval_bge_m3_top5.json",
-        "retrieval_file": ROOT / "data/benchmark/traffic_rag_retrieval_bge_m3_top5.json",
+        "retrieval_file": ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/retrieval/traffic_rag_retrieval_bge_m3_top5.json",
         "index_dir": ROOT / "data/retrieval/index_bge_m3_hybrid",
         "weights": {"dense": 0.25, "bm25": 0.25, "graph": 0.20, "reference": 0.30},
     },
     "minilm": {
         "display_name": "MiniLM hybrid",
         "output_name": "traffic_rag_retrieval_minilm_top5.json",
-        "retrieval_file": ROOT / "data/benchmark/traffic_rag_retrieval_minilm_top5.json",
+        "retrieval_file": ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/retrieval/traffic_rag_retrieval_minilm_top5.json",
         "index_dir": ROOT / "data/retrieval/index_minilm_hybrid",
         "weights": {"dense": 0.20, "bm25": 0.30, "graph": 0.20, "reference": 0.30},
     },
@@ -171,6 +173,21 @@ def canonical_model_key(raw: str) -> str:
         return MODEL_ALIASES[lowered]
     valid = ", ".join(sorted(GENERATION_MODEL_CONFIGS))
     raise ValueError(f"Unknown model alias: {raw}. Valid keys: {valid}")
+
+
+def slug_model_key(raw: str) -> str:
+    value = re.sub(r"[^a-zA-Z0-9]+", "_", raw.strip()).strip("_").lower()
+    return value or "custom_model"
+
+
+def resolve_generation_model(raw: str) -> tuple[str, dict[str, str]]:
+    if raw in MODEL_ALIASES or raw.lower() in MODEL_ALIASES:
+        key = canonical_model_key(raw)
+        return key, GENERATION_MODEL_CONFIGS[key]
+    if raw in GENERATION_MODEL_CONFIGS:
+        return raw, GENERATION_MODEL_CONFIGS[raw]
+    key = slug_model_key(raw)
+    return key, {"display_name": raw, "model_name": raw}
 
 
 def retrieval_output_path(config: dict[str, Any], args: argparse.Namespace) -> Path:
@@ -509,6 +526,7 @@ def write_final_output(
             "generation_model_key": model_key,
             "generation_model_display_name": model_config["display_name"],
             "generation_model_name": model_config["model_name"],
+            "generation_mode": args.mode,
             "top_k": args.top_k,
             "max_chars_per_passage": args.max_chars_per_passage,
             "max_new_tokens": args.max_new_tokens,
@@ -578,10 +596,14 @@ def run_pair(
                 answer = INSUFFICIENT_CONTEXT_ANSWER
             else:
                 messages = build_prompt(record["question"], context_used, answer_mode=args.answer_mode)
-                answer = generate_answer(
+                answer = generate_answer_with_backend(
+                    messages=messages,
+                    model_name=model_config["model_name"],
+                    mode=args.mode,
                     tokenizer=tokenizer,
                     model=model,
-                    messages=messages,
+                    api_key=args.api_key,
+                    base_url=args.base_url,
                     max_new_tokens=args.max_new_tokens,
                     temperature=args.temperature,
                     top_p=args.top_p,
@@ -633,7 +655,7 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8")
 
     parser = argparse.ArgumentParser(
-        description="Generate benchmark answers for baseline/hybrid retrieval pipelines and local Hugging Face LLMs."
+        description="Generate benchmark answers for baseline/hybrid retrieval pipelines using local HF models or OpenAI/OpenRouter APIs."
     )
     parser.add_argument(
         "--pipelines",
@@ -645,11 +667,14 @@ def main() -> None:
         "--models",
         nargs="+",
         default=["Llama-3.1-8B-Instruct", "Qwen2.5-7B-Instruct", "Qwen2.5-14B-Instruct"],
-        help="Model aliases or Hugging Face model ids for the supported default models.",
+        help="Model aliases, Hugging Face model ids, OpenAI model ids, or OpenRouter model ids.",
     )
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "data/benchmark/traffic_rag_answer_generation_v1")
+    parser.add_argument("--mode", choices=["local", "openai", "openrouter"], default="local")
+    parser.add_argument("--api-key", default=None)
+    parser.add_argument("--base-url", default=None)
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/answers")
     parser.add_argument("--benchmark", type=Path, default=DEFAULT_BENCHMARK_PATH)
-    parser.add_argument("--retrieval-output-dir", type=Path, default=ROOT / "data/benchmark")
+    parser.add_argument("--retrieval-output-dir", type=Path, default=ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/retrieval")
     parser.add_argument("--gazetteer-root", type=Path, default=DEFAULT_GAZETTEER_ROOT)
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--candidate-k", type=int, default=300)
@@ -671,7 +696,8 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true", help="Validate inputs and prompt formatting without loading LLMs.")
     args = parser.parse_args()
 
-    model_keys = [canonical_model_key(raw) for raw in args.models]
+    model_specs = [resolve_generation_model(raw) for raw in args.models]
+    model_keys = [key for key, _ in model_specs]
     retrieval_by_pipeline = {
         pipeline_key: load_retrieval_file(pipeline_key, PIPELINE_CONFIGS[pipeline_key], args)
         for pipeline_key in args.pipelines
@@ -689,8 +715,8 @@ def main() -> None:
         _, context = build_record_base(
             item=first_item,
             pipeline_key=first_pipeline,
-            model_key=model_keys[0],
-            model_name=GENERATION_MODEL_CONFIGS[model_keys[0]]["model_name"],
+            model_key=model_specs[0][0],
+            model_name=model_specs[0][1]["model_name"],
             top_k=args.top_k,
             max_chars_per_passage=args.max_chars_per_passage,
         )
@@ -704,15 +730,19 @@ def main() -> None:
         return
 
     outputs = []
-    for model_key in model_keys:
-        model_config = GENERATION_MODEL_CONFIGS[model_key]
-        print(f"[model] loading {model_config['display_name']} ({model_config['model_name']})")
-        tokenizer, model = load_model(
-            model_config["model_name"],
-            load_4bit=args.load_4bit,
-            dtype=args.dtype,
-            device_map=args.device_map,
-        )
+    for model_key, model_config in model_specs:
+        tokenizer = None
+        model = None
+        if args.mode == "local":
+            print(f"[model] loading {model_config['display_name']} ({model_config['model_name']})")
+            tokenizer, model = load_model(
+                model_config["model_name"],
+                load_4bit=args.load_4bit,
+                dtype=args.dtype,
+                device_map=args.device_map,
+            )
+        else:
+            print(f"[model] using {args.mode} API: {model_config['display_name']} ({model_config['model_name']})")
         try:
             for pipeline_key in args.pipelines:
                 outputs.append(
@@ -728,18 +758,21 @@ def main() -> None:
                     )
                 )
         finally:
-            unload_model(model)
-            del tokenizer
+            if model is not None:
+                unload_model(model)
+            if tokenizer is not None:
+                del tokenizer
             gc.collect()
 
     manifest = {
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "pipelines": args.pipelines,
         "models": model_keys,
+        "mode": args.mode,
         "top_k": args.top_k,
         "outputs": [str(path) for path in outputs],
     }
-    write_json(args.output_dir / "traffic_rag_answer_generation_manifest.json", manifest)
+    write_json(args.output_dir / "answer_generation_manifest.json", manifest)
     print("outputs:")
     for path in outputs:
         print(path)

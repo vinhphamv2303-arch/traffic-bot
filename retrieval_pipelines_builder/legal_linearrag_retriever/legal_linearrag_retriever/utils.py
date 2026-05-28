@@ -5,6 +5,8 @@ import math
 import os
 import pickle
 import re
+import sys
+import types
 import unicodedata
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List
@@ -45,7 +47,28 @@ def save_pickle(path: str | Path, data: Any) -> None:
         pickle.dump(data, f)
 
 
+def _install_legacy_pickle_aliases() -> None:
+    """Allow indexes pickled before the retrieval package rename to load."""
+    from . import bm25 as bm25_module
+
+    package_names = [
+        "retrieval_pipelines",
+        "retrieval_pipelines.legal_linearrag_retriever",
+        "retrieval_pipelines.legal_linearrag_retriever.legal_linearrag_retriever",
+    ]
+    for name in package_names:
+        if name not in sys.modules:
+            module = types.ModuleType(name)
+            module.__path__ = []
+            sys.modules[name] = module
+
+    sys.modules[
+        "retrieval_pipelines.legal_linearrag_retriever.legal_linearrag_retriever.bm25"
+    ] = bm25_module
+
+
 def load_pickle(path: str | Path) -> Any:
+    _install_legacy_pickle_aliases()
     with open(path, "rb") as f:
         return pickle.load(f)
 

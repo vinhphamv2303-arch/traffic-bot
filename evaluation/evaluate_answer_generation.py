@@ -12,15 +12,16 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from legal_answer_generation.local_llm_answerer import repair_mojibake  # noqa: E402
+from answer_generation.answerer import repair_mojibake  # noqa: E402
 
 
 DEFAULT_MODELS = {
     "llama_3_1_8b_instruct",
     "qwen2_5_7b_instruct",
+    "qwen2_5_14b_instruct",
 }
 
 PIPELINE_DISPLAY_NAMES = {
@@ -710,9 +711,9 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8")
 
     parser = argparse.ArgumentParser(description="Evaluate answer generation outputs for traffic RAG benchmark.")
-    parser.add_argument("--answer-dir", type=Path, default=ROOT / "data/benchmark/traffic_rag_answer_generation_v1")
-    parser.add_argument("--benchmark", type=Path, default=ROOT / "data/benchmark/traffic_rag_benchmark_v1/traffic_rag_benchmark_v1.jsonl")
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "data/benchmark")
+    parser.add_argument("--answer-dir", type=Path, default=ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/answers")
+    parser.add_argument("--benchmark", type=Path, default=ROOT / "data/benchmark/traffic_rag_gold_questions_v1/traffic_rag_gold_questions_v1.jsonl")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/answer_eval")
     parser.add_argument("--models", nargs="+", default=sorted(DEFAULT_MODELS))
     parser.add_argument(
         "--pipelines",
@@ -771,9 +772,9 @@ def main() -> None:
 
     summary_rows.sort(key=lambda row: (row["pipeline_key"], row["model_key"]))
 
-    json_path = args.output_dir / "traffic_rag_answer_generation_eval.json"
-    csv_path = args.output_dir / "traffic_rag_answer_generation_eval_summary.csv"
-    md_path = args.output_dir / "traffic_rag_answer_generation_eval_report.md"
+    json_path = args.output_dir / "answer_metrics_detailed.json"
+    csv_path = args.output_dir / "answer_metrics_summary.csv"
+    md_path = args.output_dir / "answer_metrics_report.md"
     write_json(json_path, report)
     write_summary_csv(csv_path, summary_rows)
     write_markdown(md_path, summary_rows, report)

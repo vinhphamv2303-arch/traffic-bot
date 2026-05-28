@@ -12,15 +12,15 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RESULT_FILES = {
-    "naive_bm25": ROOT / "data/benchmark/traffic_rag_retrieval_naive_bm25_top5.json",
-    "naive_dense": ROOT / "data/benchmark/traffic_rag_retrieval_naive_dense_top5.json",
-    "no_embedding": ROOT / "data/benchmark/traffic_rag_retrieval_no_embedding_top5.json",
-    "minilm_no_graph": ROOT / "data/benchmark/traffic_rag_retrieval_minilm_no_graph_top5.json",
-    "minilm": ROOT / "data/benchmark/traffic_rag_retrieval_minilm_top5.json",
-    "bge_m3_no_graph": ROOT / "data/benchmark/traffic_rag_retrieval_bge_m3_no_graph_top5.json",
-    "bge_m3": ROOT / "data/benchmark/traffic_rag_retrieval_bge_m3_top5.json",
+    "naive_bm25": ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/retrieval/traffic_rag_retrieval_naive_bm25_top5.json",
+    "naive_dense": ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/retrieval/traffic_rag_retrieval_naive_dense_top5.json",
+    "no_embedding": ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/retrieval/traffic_rag_retrieval_no_embedding_top5.json",
+    "minilm_no_graph": ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/retrieval/traffic_rag_retrieval_minilm_no_graph_top5.json",
+    "minilm": ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/retrieval/traffic_rag_retrieval_minilm_top5.json",
+    "bge_m3_no_graph": ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/retrieval/traffic_rag_retrieval_bge_m3_no_graph_top5.json",
+    "bge_m3": ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/retrieval/traffic_rag_retrieval_bge_m3_top5.json",
 }
 
 MODEL_DISPLAY_NAMES = {
@@ -469,7 +469,7 @@ def main() -> None:
     parser.add_argument(
         "--benchmark",
         type=Path,
-        default=ROOT / "data/benchmark/traffic_rag_benchmark_v1/traffic_rag_benchmark_v1.jsonl",
+        default=ROOT / "data/benchmark/traffic_rag_gold_questions_v1/traffic_rag_gold_questions_v1.jsonl",
     )
     parser.add_argument(
         "--models",
@@ -484,7 +484,7 @@ def main() -> None:
         default=None,
         help="Optional directory containing traffic_rag_retrieval_*_top5.json files.",
     )
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "data/benchmark")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "data/benchmark/traffic_rag_final_retrieval_answer_benchmark_v1/retrieval_eval")
     parser.add_argument("--ks", type=int, nargs="+", default=[1, 3, 5])
     args = parser.parse_args()
 
@@ -531,9 +531,9 @@ def main() -> None:
         summary_row = {"model_key": model_key, **model_report["overall"]}
         summary_rows.append(summary_row)
 
-    report_path = args.output_dir / "traffic_rag_retrieval_eval_top5.json"
-    csv_path = args.output_dir / "traffic_rag_retrieval_eval_summary.csv"
-    md_path = args.output_dir / "traffic_rag_retrieval_eval_report.md"
+    report_path = args.output_dir / "retrieval_metrics_detailed_top5.json"
+    csv_path = args.output_dir / "retrieval_metrics_summary.csv"
+    md_path = args.output_dir / "retrieval_metrics_report.md"
     write_json(report_path, report)
     write_csv(csv_path, summary_rows)
     write_markdown_report(md_path, report, summary_rows)
