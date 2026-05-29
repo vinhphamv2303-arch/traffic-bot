@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from answer_generation.answerer import answer_one  # noqa: E402
+from answer_generation.answerer import answer_one, retrieve_passages_for_query  # noqa: E402
 
 
 RETRIEVER_SCRIPT = ROOT / "retrieval_pipelines_builder" / "legal_linearrag_retriever" / "retrieve.py"
@@ -72,7 +72,7 @@ PIPELINES: dict[str, RetrievalPipelineConfig] = {
 
 DEFAULT_MODELS = {
     "openai": "gpt-4o-mini",
-    "openrouter": "openai/gpt-4o-mini",
+    "openrouter": "qwen/qwen-2.5-7b-instruct",
     "local": "Qwen/Qwen2.5-7B-Instruct",
 }
 
@@ -134,6 +134,48 @@ def run_demo_answer(
         max_new_tokens=max_new_tokens,
         temperature=temperature,
         conversation_memory=conversation_memory,
+    )
+    result["pipeline"] = pipeline_key
+    result["pipeline_display_name"] = config.display_name
+    result["index_dir"] = str(config.index_dir)
+    return result
+
+
+def run_demo_retrieval(
+    question: str,
+    pipeline_key: str = "hybrid_cpu",
+    mode: str = "openai",
+    model_name: str | None = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
+    top_k: int = 5,
+    candidate_k: int = 300,
+    enable_query_router: bool = True,
+    conversation_memory: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    config = PIPELINES[pipeline_key]
+    validate_runtime_paths(config)
+    weights = config.weights
+    selected_model = model_name or DEFAULT_MODELS[mode]
+
+    result = retrieve_passages_for_query(
+        query=question,
+        retriever_script=RETRIEVER_SCRIPT,
+        index_dir=config.index_dir,
+        gazetteer_root=GAZETTEER_ROOT,
+        top_k=top_k,
+        candidate_k=candidate_k,
+        dense_weight=weights["dense"],
+        bm25_weight=weights["bm25"],
+        graph_weight=weights["graph"],
+        reference_weight=weights["reference"],
+        use_reference_expansion=config.use_reference_expansion,
+        conversation_memory=conversation_memory,
+        model_name=selected_model,
+        mode=mode,
+        enable_query_rewrite=enable_query_router,
+        api_key=api_key,
+        base_url=base_url,
     )
     result["pipeline"] = pipeline_key
     result["pipeline_display_name"] = config.display_name

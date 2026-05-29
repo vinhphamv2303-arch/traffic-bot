@@ -15,6 +15,8 @@ from .answerer import (
     preprocess_user_query,
     repair_mojibake,
     repair_mojibake_text,
+    retrieve_passages_for_query,
+    run_retrieval_stage,
     run_retriever,
 )
 from .conversation_memory import (
@@ -46,6 +48,8 @@ __all__ = [
     "preprocess_user_query",
     "repair_mojibake",
     "repair_mojibake_text",
+    "retrieve_passages_for_query",
+    "run_retrieval_stage",
     "run_retriever",
     "update_memory_after_answer",
 ]

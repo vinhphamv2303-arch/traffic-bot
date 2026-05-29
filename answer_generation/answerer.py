@@ -1030,6 +1030,145 @@ def run_retriever(
         raise RuntimeError(f"Cannot parse retriever JSON output:\n{result.stdout[:2000]}") from exc
 
 
+def run_retrieval_stage(
+    original_query: str,
+    retrieval_seed_query: str,
+    retriever_script: Path,
+    index_dir: Path,
+    gazetteer_root: Path,
+    top_k: int,
+    candidate_k: int = 300,
+    dense_weight: float = 0.25,
+    bm25_weight: float = 0.25,
+    graph_weight: float = 0.20,
+    reference_weight: float = 0.30,
+    use_reference_expansion: bool = True,
+    semantic_entity_top_k: int = 20,
+    semantic_entity_min_score: float = 0.45,
+) -> tuple[str, dict[str, Any]]:
+    retrieval_query = apply_rule_based_query_rewrite(retrieval_seed_query or original_query)
+    retrieval_top_k = max(top_k, 40) if needs_retrieval_postprocess(original_query, retrieval_query) else top_k
+    retrieval = run_retriever(
+        retriever_script=retriever_script,
+        index_dir=index_dir,
+        gazetteer_root=gazetteer_root,
+        query=retrieval_query,
+        top_k=retrieval_top_k,
+        candidate_k=candidate_k,
+        dense_weight=dense_weight,
+        bm25_weight=bm25_weight,
+        graph_weight=graph_weight,
+        reference_weight=reference_weight,
+        use_reference_expansion=use_reference_expansion,
+        semantic_entity_top_k=semantic_entity_top_k,
+        semantic_entity_min_score=semantic_entity_min_score,
+    )
+    retrieval = postprocess_retrieval_for_query(retrieval, original_query, retrieval_query, top_k=top_k)
+    return retrieval_query, retrieval
+
+
+def retrieve_passages_for_query(
+    query: str,
+    retriever_script: Path,
+    index_dir: Path,
+    gazetteer_root: Path,
+    top_k: int,
+    candidate_k: int = 300,
+    dense_weight: float = 0.25,
+    bm25_weight: float = 0.25,
+    graph_weight: float = 0.20,
+    reference_weight: float = 0.30,
+    use_reference_expansion: bool = True,
+    semantic_entity_top_k: int = 20,
+    semantic_entity_min_score: float = 0.45,
+    conversation_memory: ConversationMemory | dict[str, Any] | None = None,
+    model_name: str = "gpt-4o-mini",
+    mode: str = "openai",
+    enable_query_rewrite: bool = True,
+    api_key: str | None = None,
+    base_url: str | None = None,
+    load_4bit: bool = False,
+    dtype: str = "auto",
+    device_map: str = "auto",
+) -> dict[str, Any]:
+    original_query = repair_mojibake_text(query).strip()
+    memory = _coerce_conversation_memory(conversation_memory)
+    processing_query, memory_context = expand_query_with_memory(original_query, memory)
+    processing_query = repair_mojibake_text(processing_query).strip()
+    tokenizer = None
+    model = None
+
+    if mode == "local" and enable_query_rewrite:
+        tokenizer, model = load_model(
+            model_name,
+            load_4bit=load_4bit,
+            dtype=dtype,
+            device_map=device_map,
+        )
+
+    query_preprocessing = preprocess_user_query(
+        query=processing_query,
+        model_name=model_name,
+        mode=mode,
+        tokenizer=tokenizer,
+        model=model,
+        api_key=api_key,
+        base_url=base_url,
+        enabled=enable_query_rewrite,
+    )
+    route = query_preprocessing["route"]
+    if route == ROUTE_GENERAL_CHAT and memory_context:
+        route = ROUTE_TRAFFIC_LAW
+        query_preprocessing = dict(query_preprocessing)
+        query_preprocessing["route"] = ROUTE_TRAFFIC_LAW
+        query_preprocessing["rewritten_query"] = processing_query
+        query_preprocessing["chat_answer"] = ""
+        query_preprocessing["reason"] = "conversation memory follow-up override"
+
+    if route == ROUTE_GENERAL_CHAT:
+        updated_memory = empty_memory() if is_reset_query(original_query) else memory
+        return {
+            "query": original_query,
+            "expanded_query": processing_query if memory_context else "",
+            "memory_context": memory_context,
+            "rewritten_query": "",
+            "route": route,
+            "route_reason": query_preprocessing.get("reason", ""),
+            "query_preprocessing": query_preprocessing,
+            "retrieval": {"results": [], "activated_entities": [], "debug": {"route": route}},
+            "conversation_memory": _memory_dict(updated_memory),
+        }
+
+    retrieval_query, retrieval = run_retrieval_stage(
+        original_query=original_query,
+        retrieval_seed_query=query_preprocessing.get("rewritten_query") or processing_query,
+        retriever_script=retriever_script,
+        index_dir=index_dir,
+        gazetteer_root=gazetteer_root,
+        top_k=top_k,
+        candidate_k=candidate_k,
+        dense_weight=dense_weight,
+        bm25_weight=bm25_weight,
+        graph_weight=graph_weight,
+        reference_weight=reference_weight,
+        use_reference_expansion=use_reference_expansion,
+        semantic_entity_top_k=semantic_entity_top_k,
+        semantic_entity_min_score=semantic_entity_min_score,
+    )
+    updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, retrieval)
+    return {
+        "query": original_query,
+        "expanded_query": processing_query if memory_context else "",
+        "memory_context": memory_context,
+        "rewritten_query": retrieval_query,
+        "route": route,
+        "route_reason": query_preprocessing.get("reason", ""),
+        "query_preprocessing": query_preprocessing,
+        "retrieval": retrieval,
+        "conversation_memory": _memory_dict(updated_memory),
+    }
+
+
 def _resolve_torch_dtype(torch_module, dtype: str):
     dtype = (dtype or "auto").lower()
     if dtype == "auto":
@@ -1470,14 +1609,13 @@ def answer_one(
             "conversation_memory": _memory_dict(updated_memory),
         }
 
-    retrieval_query = apply_rule_based_query_rewrite(query_preprocessing.get("rewritten_query") or processing_query)
-    retrieval_top_k = max(top_k, 40) if needs_retrieval_postprocess(original_query, retrieval_query) else top_k
-    retrieval = run_retriever(
+    retrieval_query, retrieval = run_retrieval_stage(
+        original_query=original_query,
+        retrieval_seed_query=query_preprocessing.get("rewritten_query") or processing_query,
         retriever_script=retriever_script,
         index_dir=index_dir,
         gazetteer_root=gazetteer_root,
-        query=retrieval_query,
-        top_k=retrieval_top_k,
+        top_k=top_k,
         candidate_k=candidate_k,
         dense_weight=dense_weight,
         bm25_weight=bm25_weight,
@@ -1487,7 +1625,6 @@ def answer_one(
         semantic_entity_top_k=semantic_entity_top_k,
         semantic_entity_min_score=semantic_entity_min_score,
     )
-    retrieval = postprocess_retrieval_for_query(retrieval, original_query, retrieval_query, top_k=top_k)
     context = format_context(
         retrieval.get("results", []),
         max_passages=max_context_passages,

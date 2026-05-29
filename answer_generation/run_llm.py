@@ -48,7 +48,7 @@ PIPELINES: dict[str, dict[str, Any]] = {
 DEFAULT_MODELS = {
     "local": "Qwen/Qwen2.5-7B-Instruct",
     "openai": "gpt-4o-mini",
-    "openrouter": "openai/gpt-4o-mini",
+    "openrouter": "qwen/qwen-2.5-7b-instruct",
 }
 
 
