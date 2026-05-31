@@ -282,6 +282,68 @@ def _query_preprocessing_from_resolution(
     }
 
 
+GENERAL_CHAT_HINT_PATTERN = re.compile(
+    r"\b("
+    r"xin\s*chào|chào\s*bạn|hello|hi|hey|"
+    r"cảm\s*ơn|thank\s*you|thanks|"
+    r"bạn\s*là\s*ai|giới\s*thiệu\s*về\s*bạn|"
+    r"hôm\s*nay|thời\s*tiết|kể\s*chuyện|đùa"
+    r")\b",
+    flags=re.IGNORECASE,
+)
+
+
+def _fallback_route_for_query(query: str, processing_query: str, memory_context: str = "") -> str:
+    query = repair_mojibake_text(query or "")
+    processing_query = repair_mojibake_text(processing_query or "")
+
+    if EFFECTIVITY_QUERY_PATTERN.search(processing_query):
+        return "effectivity_index"
+
+    if memory_context:
+        return ROUTE_TRAFFIC_LAW
+
+    if (
+        _should_force_retrieval(query)
+        or _should_force_retrieval(processing_query)
+        or ALCOHOL_QUERY_PATTERN.search(processing_query)
+        or PENALTY_QUERY_PATTERN.search(processing_query)
+        or TIME_DRIVING_QUERY_PATTERN.search(processing_query)
+        or re.search(r"\b(vượt\s*đèn\s*đỏ|đèn\s*tín\s*hiệu|mũ\s*bảo\s*hiểm|bằng\s*lái|gplx)\b", processing_query, re.IGNORECASE)
+    ):
+        return ROUTE_TRAFFIC_LAW
+
+    if GENERAL_CHAT_HINT_PATTERN.search(query):
+        return ROUTE_GENERAL_CHAT
+
+    return ROUTE_TRAFFIC_LAW
+
+
+def _fallback_query_preprocessing_from_query(
+    original_query: str,
+    processing_query: str,
+    conversation_resolution: dict[str, Any],
+    memory_context: str = "",
+) -> dict[str, Any]:
+    route = _fallback_route_for_query(original_query, processing_query, memory_context=memory_context)
+    return {
+        "route": route,
+        "rewritten_query": "" if route == ROUTE_GENERAL_CHAT else repair_mojibake_text(processing_query),
+        "reason": str(conversation_resolution.get("reason") or "conversation resolver fallback"),
+        "chat_answer": "",
+        "raw_response": str(conversation_resolution.get("raw_response") or ""),
+        "conversation_resolution": conversation_resolution,
+    }
+
+
+def _display_resolved_query(original_query: str, processing_query: str) -> str:
+    original_query = repair_mojibake_text(original_query or "").strip()
+    processing_query = repair_mojibake_text(processing_query or "").strip()
+    if processing_query and processing_query != original_query:
+        return processing_query
+    return ""
+
+
 def load_dotenv(path: Path | None = None) -> None:
     env_path = path or ROOT / ".env"
     if not env_path.exists():
@@ -893,11 +955,23 @@ def _query_profile(query: str) -> dict[str, Any]:
             ]
         )
     )
+    license_point_deduction = any(
+        token in normalized
+        for token in [
+            "tru diem",
+            "bi tru diem",
+            "tru bao nhieu diem",
+            "giay phep lai xe con bao nhieu diem",
+            "diem giay phep lai xe",
+            "gplx bi tru",
+        ]
+    )
     return {
         "alcohol": bool(ALCOHOL_QUERY_PATTERN.search(query)) or any(token in normalized for token in ["say", "ruou", "bia", "nong do con"]),
         "penalty": penalty,
         "criminal_intent": criminal_intent,
         "administrative_penalty": penalty and not criminal_intent,
+        "license_point_deduction": license_point_deduction,
         "time_driving": time_driving,
         "traffic_light_signal": (
             "den tin hieu giao thong" in normalized
@@ -918,6 +992,11 @@ def _domain_relevance_score(result: dict[str, Any], profile: dict[str, Any]) -> 
     text = _result_match_text(result)
     score = 0.0
     notes: list[str] = []
+    point_deduction_match = (
+        "tru diem giay phep lai xe" in text
+        or "bi tru diem giay phep lai xe" in text
+        or "bi tru diem" in text
+    )
 
     if profile["alcohol"]:
         if "nong do con" in text or "ruou bia" in text or "ruou" in text:
@@ -938,6 +1017,17 @@ def _domain_relevance_score(result: dict[str, Any], profile: dict[str, Any]) -> 
         if "bo luat hinh su" in text or "phat tu" in text or "toi " in text:
             score -= 6.0 if profile["administrative_penalty"] else 2.0
             notes.append("criminal_context_penalty")
+
+    if profile.get("license_point_deduction"):
+        if point_deduction_match:
+            score += 4.0
+            notes.append("point_deduction_match")
+        else:
+            score -= 3.0
+            notes.append("missing_point_deduction")
+    elif profile["penalty"] and point_deduction_match:
+        score += 1.5
+        notes.append("point_deduction_related")
 
     if profile.get("time_driving"):
         if _has_time_driving_terms(text):
@@ -1007,6 +1097,21 @@ def _domain_relevance_score(result: dict[str, Any], profile: dict[str, Any]) -> 
     return score, notes
 
 
+def _prioritize_by_note_absence(
+    scored: list[tuple[float, dict[str, Any]]],
+    note: str,
+) -> tuple[list[tuple[float, dict[str, Any]]], int]:
+    preferred: list[tuple[float, dict[str, Any]]] = []
+    fallback: list[tuple[float, dict[str, Any]]] = []
+    for item in scored:
+        result = item[1]
+        if note in result.get("domain_rerank_notes", []):
+            fallback.append(item)
+        else:
+            preferred.append(item)
+    return preferred + fallback, len(preferred)
+
+
 def postprocess_retrieval_for_query(
     retrieval: dict[str, Any],
     original_query: str,
@@ -1051,51 +1156,33 @@ def postprocess_retrieval_for_query(
     if temporal_scope and active_count:
         scored = [(score, result) for score, result in scored if result.get("temporal_match") is not False]
 
+    scored.sort(key=lambda item: item[0], reverse=True)
+    priority_counts: dict[str, int] = {}
+
     if profile["alcohol"]:
-        alcohol_scored = [
-            (score, result)
-            for score, result in scored
-            if "missing_alcohol" not in result.get("domain_rerank_notes", [])
-        ]
-        if alcohol_scored:
-            scored = alcohol_scored
+        scored, preferred_count = _prioritize_by_note_absence(scored, "missing_alcohol")
+        priority_counts["missing_alcohol"] = preferred_count
 
     if profile["penalty"]:
-        fine_scored = [
-            (score, result)
-            for score, result in scored
-            if "missing_fine" not in result.get("domain_rerank_notes", [])
-        ]
-        if fine_scored:
-            scored = fine_scored
+        scored, preferred_count = _prioritize_by_note_absence(scored, "missing_fine")
+        priority_counts["missing_fine"] = preferred_count
 
     if profile.get("traffic_light_signal"):
-        traffic_light_scored = [
-            (score, result)
-            for score, result in scored
-            if "missing_traffic_light" not in result.get("domain_rerank_notes", [])
-        ]
-        if traffic_light_scored:
-            scored = traffic_light_scored
+        scored, preferred_count = _prioritize_by_note_absence(scored, "missing_traffic_light")
+        priority_counts["missing_traffic_light"] = preferred_count
 
     if profile.get("time_driving"):
-        time_driving_scored = [
-            (score, result)
-            for score, result in scored
-            if "missing_time_driving" not in result.get("domain_rerank_notes", [])
-        ]
-        if time_driving_scored:
-            scored = time_driving_scored
+        scored, preferred_count = _prioritize_by_note_absence(scored, "missing_time_driving")
+        priority_counts["missing_time_driving"] = preferred_count
+
+    if profile.get("license_point_deduction"):
+        scored, preferred_count = _prioritize_by_note_absence(scored, "missing_point_deduction")
+        priority_counts["missing_point_deduction"] = preferred_count
 
     if profile["administrative_penalty"]:
-        non_criminal_scored = [
-            (score, result)
-            for score, result in scored
-            if "criminal_context_penalty" not in result.get("domain_rerank_notes", [])
-        ]
-        scored = non_criminal_scored
+        scored, preferred_count = _prioritize_by_note_absence(scored, "criminal_context_penalty")
+        priority_counts["criminal_context_penalty"] = preferred_count
 
-    scored.sort(key=lambda item: item[0], reverse=True)
     retrieval = dict(retrieval)
     retrieval["results"] = [result for _, result in scored[:top_k]]
     retrieval.setdefault("debug", {})
@@ -1114,6 +1201,7 @@ def postprocess_retrieval_for_query(
         "input_results": len(results),
         "output_results": len(retrieval["results"]),
         "active_results_before_filter": active_count,
+        "priority_counts": priority_counts,
         "rule_based_retrieval_query": retrieval_query,
     }
     return retrieval
@@ -1329,6 +1417,7 @@ def retrieve_passages_for_query(
 ) -> dict[str, Any]:
     original_query = repair_mojibake_text(query).strip()
     memory = _coerce_conversation_memory(conversation_memory)
+    display_resolved_query = ""
     tokenizer = None
     model = None
 
@@ -1359,6 +1448,7 @@ def retrieve_passages_for_query(
         enable_llm=enable_query_rewrite,
     )
     processing_query = repair_mojibake_text(processing_query).strip()
+    display_resolved_query = _display_resolved_query(original_query, processing_query)
 
     query_preprocessing = _query_preprocessing_from_resolution(
         original_query,
@@ -1366,15 +1456,11 @@ def retrieve_passages_for_query(
         conversation_resolution,
     )
     if query_preprocessing is None:
-        query_preprocessing = preprocess_user_query(
-            query=processing_query,
-            model_name=model_name,
-            mode=mode,
-            tokenizer=tokenizer,
-            model=model,
-            api_key=api_key,
-            base_url=base_url,
-            enabled=enable_query_rewrite,
+        query_preprocessing = _fallback_query_preprocessing_from_query(
+            original_query,
+            processing_query,
+            conversation_resolution,
+            memory_context=memory_context,
         )
     route = query_preprocessing["route"]
     if route == ROUTE_GENERAL_CHAT and memory_context:
@@ -1390,7 +1476,7 @@ def retrieve_passages_for_query(
         updated_memory = empty_memory() if is_reset_query(original_query) else memory
         return {
             "query": original_query,
-            "expanded_query": processing_query if memory_context else "",
+            "expanded_query": display_resolved_query,
             "memory_context": memory_context,
             "rewritten_query": "",
             "route": route,
@@ -1427,7 +1513,7 @@ def retrieve_passages_for_query(
     updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, retrieval)
     return {
         "query": original_query,
-        "expanded_query": processing_query if memory_context else "",
+        "expanded_query": display_resolved_query,
         "memory_context": memory_context,
         "rewritten_query": retrieval_query,
         "route": route,
@@ -1784,6 +1870,7 @@ def answer_one(
 ) -> dict[str, Any]:
     original_query = repair_mojibake_text(query).strip()
     memory = _coerce_conversation_memory(conversation_memory)
+    display_resolved_query = ""
     tokenizer = None
     model = None
 
@@ -1814,13 +1901,14 @@ def answer_one(
         enable_llm=enable_query_rewrite,
     )
     processing_query = repair_mojibake_text(processing_query).strip()
+    display_resolved_query = _display_resolved_query(original_query, processing_query)
 
     early_effectivity_answer = _direct_effectivity_answer(processing_query)
     if early_effectivity_answer:
         updated_memory = update_memory_after_answer(memory, original_query, processing_query, None, answer=early_effectivity_answer)
         return {
             "query": original_query,
-            "expanded_query": processing_query if memory_context else "",
+            "expanded_query": display_resolved_query,
             "memory_context": memory_context,
             "rewritten_query": processing_query,
             "route": ROUTE_TRAFFIC_LAW,
@@ -1849,15 +1937,11 @@ def answer_one(
         conversation_resolution,
     )
     if query_preprocessing is None:
-        query_preprocessing = preprocess_user_query(
-            query=processing_query,
-            model_name=model_name,
-            mode=mode,
-            tokenizer=tokenizer,
-            model=model,
-            api_key=api_key,
-            base_url=base_url,
-            enabled=enable_query_rewrite,
+        query_preprocessing = _fallback_query_preprocessing_from_query(
+            original_query,
+            processing_query,
+            conversation_resolution,
+            memory_context=memory_context,
         )
     route = query_preprocessing["route"]
     if route == ROUTE_GENERAL_CHAT and memory_context:
@@ -1894,7 +1978,7 @@ def answer_one(
         updated_memory = empty_memory() if is_reset_query(original_query) else memory
         return {
             "query": original_query,
-            "expanded_query": processing_query if memory_context else "",
+            "expanded_query": display_resolved_query,
             "memory_context": memory_context,
             "rewritten_query": "",
             "route": route,
@@ -1917,7 +2001,7 @@ def answer_one(
         updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, None, answer=direct_effectivity_answer)
         return {
             "query": original_query,
-            "expanded_query": processing_query if memory_context else "",
+            "expanded_query": display_resolved_query,
             "memory_context": memory_context,
             "rewritten_query": retrieval_query,
             "route": route,
@@ -1965,7 +2049,7 @@ def answer_one(
     if not context.strip():
         answer = INSUFFICIENT_CONTEXT_ANSWER
     else:
-        prompt_query = processing_query if memory_context else original_query
+        prompt_query = processing_query or original_query
         messages = build_prompt(prompt_query, context, answer_mode=answer_mode)
         if mode == "local":
             if tokenizer is None or model is None:
@@ -2001,7 +2085,7 @@ def answer_one(
     updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, retrieval, answer=answer)
     return {
         "query": original_query,
-        "expanded_query": processing_query if memory_context else "",
+        "expanded_query": display_resolved_query,
         "memory_context": memory_context,
         "rewritten_query": retrieval_query,
         "route": route,

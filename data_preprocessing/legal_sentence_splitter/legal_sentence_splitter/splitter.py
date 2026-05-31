@@ -107,6 +107,8 @@ class LegalSentenceSplitter:
                 "sentence_order": idx,
                 "passage_order": passage.get("order"),
                 "text": sent,
+                "passage_text": passage.get("passage_text"),
+                "content": passage.get("content"),
                 "context_text": context_text,
                 "sentence_text_for_ner": sentence_text_for_ner,
                 "path_text": passage.get("path_text"),

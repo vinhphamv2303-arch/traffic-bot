@@ -12,10 +12,7 @@ from conversation_memory.models import (
     QueryPlan,
 )
 from conversation_memory.planner import build_plan
-from conversation_memory.resolver import (
-    resolve_with_llm,
-    should_call_conversation_resolver,
-)
+from conversation_memory.resolver import resolve_with_llm
 from conversation_memory.updater import (
     extract_entities_simple,
     update_state_after_answer,
@@ -330,28 +327,26 @@ def resolve_query_with_memory(
             "accepted": False,
             "used_llm": False,
             "reason": "reset query",
+            "route": "traffic_law",
         }
 
     state = _state_for_plan(coerce_memory(memory))
-    if not state:
-        return query, "", {
-            "accepted": False,
-            "used_llm": False,
-            "reason": "no usable memory",
-        }
-
-    fallback_plan = prepare_memory_plan(query, state)
-    fallback_query = fallback_plan.primary_query if fallback_plan.use_memory else query
-    fallback_context = fallback_plan.answer_memory_context if fallback_plan.use_memory else ""
+    fallback_plan = prepare_memory_plan(query, state) if state else None
+    fallback_query = fallback_plan.primary_query if fallback_plan and fallback_plan.use_memory else query
+    fallback_context = fallback_plan.answer_memory_context if fallback_plan and fallback_plan.use_memory else ""
 
     debug: dict[str, Any] = {
         "accepted": False,
         "used_llm": False,
-        "reason": "rule fallback",
-        "fallback_plan": fallback_plan.debug,
+        "reason": "rule fallback" if fallback_plan else "raw fallback",
+        "route": "traffic_law",
     }
+    if fallback_plan:
+        debug["fallback_plan"] = fallback_plan.debug
 
-    if not (enable_llm and llm_call and should_call_conversation_resolver(query, state)):
+    if not (enable_llm and llm_call):
+        if not state:
+            debug["reason"] = "resolver disabled and no usable memory"
         return fallback_query, fallback_context, debug
 
     try:

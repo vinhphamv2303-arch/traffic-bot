@@ -181,7 +181,43 @@ def test_llm_conversation_resolver_uses_clean_retrieval_query():
 
     assert resolution["accepted"] is True
     assert resolution["relation"] == "replace_constraint"
-    assert query == "người điều khiển xe máy không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị xử phạt như thế nào 168/2024/NĐ-CP"
+    assert query == "người điều khiển xe máy không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị xử phạt như thế nào"
     assert "Thực thể liên quan" not in query
     assert "xe ô tô" not in query
+    assert "168/2024/NĐ-CP" not in query
     assert "Trọng tâm lượt hiện tại" in memory_context
+
+
+def test_llm_conversation_resolver_runs_without_memory():
+    import json
+
+    from answer_generation.conversation_memory import resolve_query_with_memory
+
+    def fake_llm_call(_messages):
+        return json.dumps(
+            {
+                "relation": "new_topic",
+                "use_memory": False,
+                "reason": "chuẩn hóa ngôn ngữ đời thường",
+                "current_focus": "xử phạt xe máy vượt đèn đỏ",
+                "dropped_answered_content": [],
+                "changed_constraints": {},
+                "standalone_question": "Người điều khiển xe máy không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị xử phạt như thế nào?",
+                "retrieval_query": "người điều khiển xe máy không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị xử phạt như thế nào",
+                "route": "traffic_law",
+                "confidence": 0.91,
+            },
+            ensure_ascii=False,
+        )
+
+    query, memory_context, resolution = resolve_query_with_memory(
+        "xe máy vượt đèn đỏ phạt bao nhiêu",
+        None,
+        llm_call=fake_llm_call,
+        enable_llm=True,
+    )
+
+    assert resolution["accepted"] is True
+    assert resolution["relation"] == "new_topic"
+    assert query == "người điều khiển xe máy không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị xử phạt như thế nào"
+    assert memory_context == ""

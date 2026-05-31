@@ -185,11 +185,20 @@ def build_graph_maps(
                 stats["remapped_reference_source"] += 1
             if raw_tgt != tgt:
                 stats["remapped_reference_target"] += 1
+            edge_weight = float(edge.get("weight", 1.0))
             passage_neighbors[src].append({
                 "passage_id": tgt,
-                "weight": float(edge.get("weight", 1.0)),
+                "weight": edge_weight,
                 "edge_type": edge.get("edge_type"),
+                "direction": "outgoing",
             })
+            passage_neighbors[tgt].append({
+                "passage_id": src,
+                "weight": edge_weight,
+                "edge_type": "PASSAGE_REFERRED_BY_PASSAGE",
+                "direction": "incoming",
+            })
+            stats["bidirectional_reference_links"] += 2
         else:
             stats["skipped_reference_edge_bad_passage"] += 1
 
