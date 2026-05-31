@@ -2,9 +2,12 @@
 __pycache__/
 *.py[cod]
 *$py.class
-.env
+
+# browser
+/.luatvietnam_browser_profile/
 
 # data
-/.luatvietnam_browser_profile/
 /data/
 /ner_finetuning/data/
+
+.env
