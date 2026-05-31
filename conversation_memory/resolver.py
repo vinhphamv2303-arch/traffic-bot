@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from collections.abc import Callable
 from typing import Any
 
 from .models import ConversationResolveResult, ConversationState, Relation, Route
 from .scoring import followup_marker_score
 from .utils import extract_json_object
-
 
 VALID_RELATIONS: set[str] = {
     "new_topic",
@@ -26,27 +26,77 @@ AMBIGUOUS_FOLLOWUP_PATTERN = re.compile(
     r"\b("
     r"vậy|thế|còn|thì\s*sao|trường\s*hợp\s*này|trường\s*hợp\s*đó|"
     r"quy\s*định\s*này|quy\s*định\s*đó|hành\s*vi\s*này|hành\s*vi\s*đó|"
-    r"văn\s*bản\s*này|văn\s*bản\s*đó|điều\s*này|điều\s*đó|"
-    r"khoản\s*này|khoản\s*đó|điểm\s*này|điểm\s*đó|"
+    r"văn\s*bản\s*này|văn\s*bản\s*đó|nghị\s*định\s*này|nghị\s*định\s*đó|"
+    r"luật\s*này|luật\s*đó|thông\s*tư\s*này|thông\s*tư\s*đó|"
+    r"điều\s*này|điều\s*đó|khoản\s*này|khoản\s*đó|điểm\s*này|điểm\s*đó|"
     r"đối\s*với|ý\s*tôi\s*là|ý\s*mình\s*là|không\s*phải"
     r")\b",
     flags=re.IGNORECASE,
 )
 
+DOCUMENT_REFERENCE_PATTERN = re.compile(
+    r"\b("
+    r"văn\s*bản\s*này|văn\s*bản\s*đó|nghị\s*định\s*này|nghị\s*định\s*đó|"
+    r"luật\s*này|luật\s*đó|thông\s*tư\s*này|thông\s*tư\s*đó|"
+    r"quyết\s*định\s*này|quyết\s*định\s*đó|nghị\s*quyết\s*này|nghị\s*quyết\s*đó|"
+    r"nó"
+    r")\b",
+    flags=re.IGNORECASE,
+)
+
+EFFECTIVITY_PATTERN = re.compile(
+    r"\b("
+    r"hiệu\s*lực|còn\s*hiệu\s*lực|hết\s*hiệu\s*lực|ngày\s*hiệu\s*lực|"
+    r"có\s*hiệu\s*lực|áp\s*dụng\s*từ|ngày\s*áp\s*dụng|bãi\s*bỏ|thay\s*thế"
+    r")\b",
+    flags=re.IGNORECASE,
+)
+
+EVIDENCE_PATTERN = re.compile(
+    r"\b("
+    r"căn\s*cứ|dựa\s*vào|ở\s*đâu|điều\s*nào|khoản\s*nào|điểm\s*nào|"
+    r"quy\s*định\s*trong\s*văn\s*bản\s*nào|văn\s*bản\s*nào"
+    r")\b",
+    flags=re.IGNORECASE,
+)
+
+# Số hiệu văn bản phổ biến trong corpus giao thông: 168/2024/NĐ-CP, 36/2024/QH15,
+# 57/2025/NQ-HĐND, 41/2024/TT-BGTVT, 65/2024/TT-BCA, ...
+DOC_ID_RE = re.compile(
+    r"\b\d{1,4}\s*/\s*\d{4}\s*/\s*(?:"
+    r"NĐ-CP|ND-CP|QH\d*|NQ-[A-ZÀ-ỸĐ]+|TT-[A-ZÀ-ỸĐ]+|"
+    r"QĐ-[A-ZÀ-ỸĐ]+|QD-[A-ZÀ-ỸĐ]+|TTBCA|TTBGTVT"
+    r")\b",
+    flags=re.IGNORECASE,
+)
 
 RESOLVER_SYSTEM_PROMPT = """
-Bạn là Conversation Resolver cho hệ thống RAG pháp luật giao thông Việt Nam.
+Bạn là Conversation Resolver kiêm Legal Query Rewriter cho hệ thống RAG pháp luật giao thông Việt Nam.
 
-Nhiệm vụ:
+Nhiệm vụ duy nhất:
+Biến CURRENT_QUESTION thành một câu hỏi/truy vấn pháp lý độc lập, sạch, phù hợp để đưa vào retriever/answerer.
+
+Bạn phải làm đồng thời:
 - Xác định câu hỏi trọng tâm của lượt hiện tại.
-- Nếu câu hỏi hiện tại là follow-up, dùng MEMORY để viết lại thành câu hỏi độc lập.
-- Nếu câu hỏi hiện tại thay đổi một điều kiện so với lượt trước, thay điều kiện cũ bằng điều kiện mới.
-- Nếu câu hỏi hiện tại mở chủ đề mới, không dùng memory cũ.
-- Bỏ các phần đã được trả lời ở lượt trước, trừ khi cần giữ để hiểu ngữ cảnh.
+- Nếu CURRENT_QUESTION là follow-up, chỉ kế thừa phần thật sự cần thiết từ MEMORY.
+- Nếu CURRENT_QUESTION thay đổi điều kiện so với lượt trước, hãy thay điều kiện cũ bằng điều kiện mới.
+  Ví dụ: ô tô -> xe máy; dưới 18 tuổi -> dưới 16 tuổi; Hà Nội -> TP.HCM.
+- Nếu CURRENT_QUESTION mở chủ đề mới, không dùng MEMORY cũ.
+- Bỏ phần đã được trả lời ở lượt trước, trừ khi cần giữ để hiểu câu hỏi hiện tại.
+- Chuẩn hóa ngôn ngữ đời thường thành ngôn ngữ pháp luật vừa đủ cho retrieval.
 - Không trả lời câu hỏi pháp luật.
 - Không tự bịa Điều/Khoản/Điểm.
 - Không tự bịa mức phạt, thời hạn, ngày hiệu lực.
 - Output bắt buộc là JSON hợp lệ, không markdown, không giải thích ngoài JSON.
+
+QUY TẮC RẤT QUAN TRỌNG VỀ MEMORY VĂN BẢN:
+- MEMORY có thể chứa focus_docs, last_citations hoặc số hiệu văn bản của lượt trước.
+- Không được chép focus_docs, last_citations, Điều/Khoản/Điểm hoặc số hiệu văn bản từ MEMORY vào standalone_question/retrieval_query chỉ vì MEMORY có chúng.
+- Với câu hỏi thông thường về hành vi, đối tượng, phương tiện, mức phạt, điều kiện..., MEMORY chỉ dùng để hiểu ngữ cảnh, không dùng để giới hạn văn bản.
+- Chỉ được dùng số hiệu văn bản từ MEMORY khi CURRENT_QUESTION tham chiếu trực tiếp đến văn bản đó, ví dụ:
+  "văn bản này", "văn bản đó", "nghị định này", "luật này", "thông tư này", "nghị quyết này", "nó".
+- Hoặc khi CURRENT_QUESTION hỏi trực tiếp về hiệu lực/còn hiệu lực/hết hiệu lực/bãi bỏ/thay thế/căn cứ/văn bản nào.
+- Nếu người dùng không tự nêu số văn bản trong CURRENT_QUESTION và câu hỏi không tham chiếu trực tiếp tới văn bản, retrieval_query không được chứa số văn bản.
 
 Các relation hợp lệ:
 - new_topic
@@ -71,20 +121,17 @@ JSON schema bắt buộc:
   "dropped_answered_content": ["phần đã trả lời ở lượt trước nếu có"],
   "changed_constraints": {},
   "standalone_question": "câu hỏi độc lập sạch để người đọc hiểu được",
-  "retrieval_query": "truy vấn sạch cho RAG, không chứa mô tả memory dài",
+  "retrieval_query": "truy vấn sạch cho RAG, không chứa mô tả memory dài, không tự thêm số văn bản cũ",
   "route": "traffic_law | effectivity_index | normal_chat",
   "confidence": 0.0
 }
 """.strip()
 
-
 FEW_SHOTS: list[dict[str, str]] = [
     {
         "role": "user",
         "content": """
-CURRENT_QUESTION:
-vậy còn xe máy thì sao
-
+CURRENT_QUESTION: vậy còn xe máy thì sao
 MEMORY:
 {
   "last_user_question": "Phạt người điều khiển xe ô tô không chấp hành hiệu lệnh của đèn tín hiệu giao thông như thế nào?",
@@ -107,9 +154,9 @@ MEMORY:
                 "dropped_answered_content": ["mức phạt đối với xe ô tô đã được trả lời"],
                 "changed_constraints": {"vehicle": {"from": "xe ô tô", "to": "xe máy"}},
                 "standalone_question": "Người điều khiển xe máy không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị xử phạt như thế nào?",
-                "retrieval_query": "người điều khiển xe máy không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị xử phạt như thế nào 168/2024/NĐ-CP",
+                "retrieval_query": "người điều khiển xe máy không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị xử phạt như thế nào",
                 "route": "traffic_law",
-                "confidence": 0.93,
+                "confidence": 0.95,
             },
             ensure_ascii=False,
         ),
@@ -117,9 +164,40 @@ MEMORY:
     {
         "role": "user",
         "content": """
-CURRENT_QUESTION:
-văn bản này còn hiệu lực không
-
+CURRENT_QUESTION: đối với người dưới 16 thì sao?
+MEMORY:
+{
+  "last_user_question": "Người dưới 18 tuổi vi phạm giao thông có bị phạt không?",
+  "last_standalone_question": "Người dưới 18 tuổi vi phạm giao thông có bị xử phạt không?",
+  "last_answer_summary": "Đã trả lời về trách nhiệm xử phạt đối với người dưới 18 tuổi vi phạm giao thông.",
+  "last_intent": "penalty",
+  "focus_entities": ["người dưới 18 tuổi", "vi phạm giao thông"],
+  "focus_docs": ["168/2024/NĐ-CP"]
+}
+""".strip(),
+    },
+    {
+        "role": "assistant",
+        "content": json.dumps(
+            {
+                "relation": "replace_constraint",
+                "use_memory": True,
+                "reason": "Người dùng hỏi tiếp cùng chủ đề nhưng thay điều kiện độ tuổi từ dưới 18 tuổi sang dưới 16 tuổi.",
+                "current_focus": "người dưới 16 tuổi vi phạm giao thông có bị xử phạt không",
+                "dropped_answered_content": ["nội dung đã trả lời về người dưới 18 tuổi"],
+                "changed_constraints": {"age": {"from": "dưới 18 tuổi", "to": "dưới 16 tuổi"}},
+                "standalone_question": "Người dưới 16 tuổi vi phạm giao thông có bị xử phạt không?",
+                "retrieval_query": "người dưới 16 tuổi vi phạm giao thông có bị xử phạt không",
+                "route": "traffic_law",
+                "confidence": 0.92,
+            },
+            ensure_ascii=False,
+        ),
+    },
+    {
+        "role": "user",
+        "content": """
+CURRENT_QUESTION: văn bản này còn hiệu lực không
 MEMORY:
 {
   "last_user_question": "Nghị định 168/2024/NĐ-CP quy định gì về xử phạt vi phạm giao thông?",
@@ -137,7 +215,7 @@ MEMORY:
             {
                 "relation": "ask_effectivity",
                 "use_memory": True,
-                "reason": "Cụm 'văn bản này' tham chiếu văn bản ở lượt trước.",
+                "reason": "Cụm 'văn bản này' tham chiếu trực tiếp văn bản ở lượt trước.",
                 "current_focus": "tình trạng hiệu lực của Nghị định 168/2024/NĐ-CP",
                 "dropped_answered_content": ["nội dung xử phạt chung đã được trả lời"],
                 "changed_constraints": {},
@@ -152,9 +230,41 @@ MEMORY:
     {
         "role": "user",
         "content": """
-CURRENT_QUESTION:
-Tỉnh Đồng Tháp và tỉnh Kiên Giang mang biển số mấy?
-
+CURRENT_QUESTION: căn cứ ở đâu?
+MEMORY:
+{
+  "last_user_question": "Xe máy vượt đèn đỏ bị phạt bao nhiêu?",
+  "last_standalone_question": "Người điều khiển xe máy không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị xử phạt như thế nào?",
+  "last_answer_summary": "Người điều khiển xe máy bị phạt tiền từ 4.000.000 đồng đến 6.000.000 đồng.",
+  "last_intent": "penalty",
+  "focus_entities": ["xe máy", "không chấp hành hiệu lệnh của đèn tín hiệu giao thông"],
+  "focus_docs": ["168/2024/NĐ-CP"],
+  "last_citations": ["Điều 7, Khoản 7, Điểm c, Nghị định 168/2024/NĐ-CP"]
+}
+""".strip(),
+    },
+    {
+        "role": "assistant",
+        "content": json.dumps(
+            {
+                "relation": "ask_evidence",
+                "use_memory": True,
+                "reason": "Người dùng hỏi căn cứ của câu trả lời ngay trước đó.",
+                "current_focus": "căn cứ pháp lý cho mức xử phạt xe máy không chấp hành đèn tín hiệu giao thông",
+                "dropped_answered_content": ["mức phạt đã được trả lời"],
+                "changed_constraints": {},
+                "standalone_question": "Căn cứ pháp lý về xử phạt người điều khiển xe máy không chấp hành hiệu lệnh của đèn tín hiệu giao thông nằm ở đâu?",
+                "retrieval_query": "căn cứ pháp lý xử phạt người điều khiển xe máy không chấp hành hiệu lệnh của đèn tín hiệu giao thông",
+                "route": "traffic_law",
+                "confidence": 0.88,
+            },
+            ensure_ascii=False,
+        ),
+    },
+    {
+        "role": "user",
+        "content": """
+CURRENT_QUESTION: Tỉnh Đồng Tháp và tỉnh Kiên Giang mang biển số mấy?
 MEMORY:
 {
   "last_user_question": "Lái xe khi có nồng độ cồn bị xử phạt thế nào?",
@@ -190,9 +300,11 @@ MEMORY:
 def should_call_conversation_resolver(question: str, state: ConversationState | None) -> bool:
     if not state or state.turn_count <= 0:
         return False
+
     q = (question or "").strip()
     if not q:
         return False
+
     token_count = len(q.split())
     return (
         token_count <= 14
@@ -204,6 +316,9 @@ def should_call_conversation_resolver(question: str, state: ConversationState | 
 def render_memory_for_resolver(state: ConversationState | None) -> dict[str, Any]:
     if not state:
         return {}
+
+    # Giữ focus_docs trong MEMORY để resolver hiểu được các cụm "văn bản này",
+    # nhưng prompt + post-validation sẽ không cho chép doc vào query thường.
     return {
         "last_user_question": state.last_user_question or "",
         "last_standalone_question": state.last_standalone_question or "",
@@ -216,7 +331,10 @@ def render_memory_for_resolver(state: ConversationState | None) -> dict[str, Any
     }
 
 
-def build_resolver_messages(current_question: str, state: ConversationState | None) -> list[dict[str, str]]:
+def build_resolver_messages(
+    current_question: str,
+    state: ConversationState | None,
+) -> list[dict[str, str]]:
     memory_json = json.dumps(render_memory_for_resolver(state), ensure_ascii=False, indent=2)
     current_prompt = f"""
 CURRENT_QUESTION:
@@ -225,6 +343,7 @@ CURRENT_QUESTION:
 MEMORY:
 {memory_json}
 """.strip()
+
     return [
         {"role": "system", "content": RESOLVER_SYSTEM_PROMPT},
         *FEW_SHOTS,
@@ -248,7 +367,100 @@ def _coerce_confidence(value: Any) -> float:
     return min(1.0, max(0.0, confidence))
 
 
-def parse_resolver_output(raw_response: str) -> ConversationResolveResult | None:
+def _strip_accents(text: str) -> str:
+    normalized = unicodedata.normalize("NFD", text or "")
+    text = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
+    return text.replace("đ", "d").replace("Đ", "D")
+
+
+def _doc_key(doc_id: str) -> str:
+    # So sánh mềm giữa NĐ/ND, có/không dấu, có/không khoảng trắng.
+    return re.sub(r"\s+", "", _strip_accents(doc_id).lower())
+
+
+def _doc_ids_in_text(text: str) -> set[str]:
+    return {_doc_key(match.group(0)) for match in DOC_ID_RE.finditer(text or "")}
+
+
+def _allows_memory_document_in_query(
+    current_question: str,
+    relation: str,
+    route: str,
+) -> bool:
+    q = current_question or ""
+
+    if DOCUMENT_REFERENCE_PATTERN.search(q):
+        return True
+
+    if relation in {"ask_effectivity"} or route == "effectivity_index":
+        return True
+
+    # Hỏi căn cứ/văn bản nào có thể cần citation/document từ lượt trước để hiểu "căn cứ ở đâu".
+    if relation == "ask_evidence" and EVIDENCE_PATTERN.search(q):
+        return True
+
+    if EFFECTIVITY_PATTERN.search(q):
+        return True
+
+    return False
+
+
+def _clean_spacing(text: str) -> str:
+    text = re.sub(r"\s+", " ", text or "").strip()
+    text = re.sub(r"\s+([,.!?;:])", r"\1", text)
+    text = re.sub(r"([,.!?;:]){2,}", r"\1", text)
+    return text.strip(" .,-;:")
+
+
+def _strip_disallowed_doc_ids(
+    text: str,
+    current_question: str,
+    relation: str,
+    route: str,
+) -> str:
+    """Remove doc ids copied from MEMORY unless the current question really needs them.
+
+    Keep a doc id if:
+    - the user explicitly typed it in CURRENT_QUESTION; or
+    - CURRENT_QUESTION refers to the document itself ("văn bản này", effectivity, evidence).
+
+    This prevents normal follow-ups like "vậy còn xe máy thì sao" from becoming
+    "... 168/2024/NĐ-CP", while preserving cases like "văn bản này còn hiệu lực không".
+    """
+    if not text:
+        return text
+
+    current_doc_keys = _doc_ids_in_text(current_question)
+    allow_memory_doc = _allows_memory_document_in_query(current_question, relation, route)
+
+    def repl(match: re.Match[str]) -> str:
+        doc_id = match.group(0)
+        if _doc_key(doc_id) in current_doc_keys:
+            return doc_id
+        if allow_memory_doc:
+            return doc_id
+        return ""
+
+    return _clean_spacing(DOC_ID_RE.sub(repl, text))
+
+
+def _force_route_by_current_question(current_question: str, route: str) -> str:
+    q = current_question or ""
+
+    if EFFECTIVITY_PATTERN.search(q):
+        return "effectivity_index"
+
+    # Câu định nghĩa không được nhảy vào fast-path hiệu lực chỉ vì memory có document.
+    if re.search(r"\b(là\s*gì|nghĩa\s*là\s*gì|định\s*nghĩa|được\s*hiểu\s*là)\b", q, re.I):
+        return "traffic_law"
+
+    return route
+
+
+def parse_resolver_output(
+    raw_response: str,
+    current_question: str = "",
+) -> ConversationResolveResult | None:
     data = extract_json_object(raw_response)
     if not data:
         return None
@@ -262,6 +474,7 @@ def parse_resolver_output(raw_response: str) -> ConversationResolveResult | None
         route = "normal_chat"
     if route not in VALID_ROUTES:
         route = "traffic_law"
+    route = _force_route_by_current_question(current_question, route)
 
     dropped = data.get("dropped_answered_content") or []
     if not isinstance(dropped, list):
@@ -273,6 +486,25 @@ def parse_resolver_output(raw_response: str) -> ConversationResolveResult | None
 
     standalone = str(data.get("standalone_question") or "").strip()
     retrieval_query = str(data.get("retrieval_query") or standalone).strip()
+
+    standalone = _strip_disallowed_doc_ids(
+        standalone,
+        current_question=current_question,
+        relation=relation,
+        route=route,
+    )
+    retrieval_query = _strip_disallowed_doc_ids(
+        retrieval_query,
+        current_question=current_question,
+        relation=relation,
+        route=route,
+    )
+
+    if not standalone:
+        standalone = current_question.strip()
+    if not retrieval_query:
+        retrieval_query = standalone
+
     use_memory = _coerce_bool(data.get("use_memory"))
     if relation == "new_topic":
         use_memory = False
@@ -299,9 +531,10 @@ def resolve_with_llm(
     llm_call: Callable[[list[dict[str, str]]], str],
 ) -> ConversationResolveResult | None:
     raw_response = llm_call(build_resolver_messages(current_question, state))
-    result = parse_resolver_output(raw_response)
+    result = parse_resolver_output(raw_response, current_question=current_question)
     if result:
         return result
+
     return ConversationResolveResult(
         relation="new_topic",
         use_memory=False,

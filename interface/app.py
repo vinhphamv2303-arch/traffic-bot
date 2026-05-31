@@ -884,11 +884,8 @@ def render_chat_history() -> None:
     for item in st.session_state.chat_history:
         role = item.get("role", "assistant")
         with st.chat_message(role):
-            if role == "user":
-                st.markdown('<div class="is-user" style="display:none;">u</div>' + (item.get("content") or ""), unsafe_allow_html=True)
-            else:
-                st.markdown('<div class="is-bot" style="display:none;">b</div>', unsafe_allow_html=True)
-                st.markdown(item.get("content") or "")
+            flag = '<div class="is-user" style="display:none;">u</div>' if role == "user" else '<div class="is-bot" style="display:none;">b</div>'
+            st.markdown(flag + (item.get("content") or ""), unsafe_allow_html=True)
 
             payload = item.get("payload")
             kind = item.get("kind")
@@ -959,8 +956,8 @@ def handle_prompt(prompt: str, sidebar_settings: dict[str, Any], model_settings:
 
                 assistant_content = result.get("answer") or t("no_answer", lang)
                 st.write_stream(_typewriter(assistant_content))
-                render_answer_result(result)
                 st.session_state.chat_history.append({"role": "assistant", "content": assistant_content, "kind": "answer", "payload": result})
+                st.rerun()
 
             elif mode == "retriever":
                 with st.status(t("step_retrieving", lang), expanded=True) as status:
@@ -985,8 +982,8 @@ def handle_prompt(prompt: str, sidebar_settings: dict[str, Any], model_settings:
                 count = len((result.get("retrieval") or result).get("results") or [])
                 assistant_content = t("retrieved_count", lang, n=str(count))
                 st.markdown(assistant_content)
-                render_retrieval_summary(result)
                 st.session_state.chat_history.append({"role": "assistant", "content": assistant_content, "kind": "retriever", "payload": result})
+                st.rerun()
 
             elif mode == "ner":
                 with st.status(t("step_ner_processing", lang), expanded=True) as status:
@@ -1001,8 +998,8 @@ def handle_prompt(prompt: str, sidebar_settings: dict[str, Any], model_settings:
                 count = len(result.get("entities") or [])
                 assistant_content = t("entity_count", lang, n=str(count))
                 st.markdown(assistant_content)
-                render_ner_result(result)
                 st.session_state.chat_history.append({"role": "assistant", "content": assistant_content, "kind": "ner", "payload": result})
+                st.rerun()
 
         except Exception as exc:
             error_content = f"{t('error_prefix', lang)}: `{exc}`"
