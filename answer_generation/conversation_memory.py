@@ -1,260 +1,404 @@
 from __future__ import annotations
 
 import re
-from dataclasses import asdict, dataclass, field
+from collections.abc import Callable
 from typing import Any
 
+from conversation_memory.models import (
+    ConversationResolveResult,
+    ConversationState,
+    MemoryDocument,
+    MemoryEntity,
+    QueryPlan,
+)
+from conversation_memory.planner import build_plan
+from conversation_memory.resolver import (
+    resolve_with_llm,
+    should_call_conversation_resolver,
+)
+from conversation_memory.updater import (
+    extract_entities_simple,
+    update_state_after_answer,
+)
+from conversation_memory.utils import unique_keep_order
 
-FOLLOWUP_PATTERNS = re.compile(
-    r"\b("
-    r"trường\s*hợp\s*này|quy\s*định\s*(này|đó|trên)|văn\s*bản\s*(này|đó)|"
-    r"điều\s*(này|đó|trên)|khoản\s*(này|đó|trên)|điểm\s*(này|đó|trên)|"
-    r"hành\s*vi\s*(này|đó)|mức\s*(này|đó)|thời\s*gian\s*(này|đó)|"
-    r"nếu\s*vậy|như\s*vậy|như\s*thế|vậy\s*thì|thế\s*thì|"
-    r"nếu\s+là|còn\s*nếu|thế\s*còn|hiện\s*nay|còn\s*áp\s*dụng|còn\s*hiệu\s*lực|"
-    r"cụ\s*thể|cụ\s*thể\s*là|ra\s*sao|như\s*thế\s*nào|thế\s*nào|"
-    r"có\s*bị\s*phạt\s*không|bị\s*phạt\s*thế\s*nào|mức\s*phạt|phạt\s*bao\s*nhiêu|"
-    r"nếu\s*vượt\s*quá|vượt\s*quá\s*thời\s*gian|quá\s*thời\s*gian\s*quy\s*định"
-    r")\b"
-    r"|"
-    r"\b(còn|thế\s*còn)\s+.{1,80}?\s+thì\s+sao\b"
-    r"|"
-    r"\bthì\s+sao\b"
-    r"trong\s*trường\s*hợp\s*(này|đó|trên)|"
-    r"trường\s*hợp\s*(này|đó|trên)|"
-    r"quy\s*định\s*(này|đó|trên)|"
-    r"thời\s*gian\s*quy\s*định\s*(này|đó|trên)|"
-    r"vượt\s*quá\s*thời\s*gian\s*quy\s*định|"
-    r"có\s*bị\s*xử\s*phạt\s*hay\s*không|"
-    r"có\s*bị\s*xử\s*phạt\s*không|"
-    r"bị\s*xử\s*phạt\s*thế\s*nào|",
+
+"""Compatibility layer between answer_generation and the conversation_memory package."""
+
+ConversationMemory = ConversationState
+DEFAULT_SESSION_ID = "default"
+
+MEMORY_MARKER_PATTERN = re.compile(
+    r"\s*(Thực\s*thể\s*liên\s*quan|Văn\s*bản\s*liên\s*quan|Chủ\s*đề\s*đang\s*theo\s*dõi)\s*:",
+    flags=re.IGNORECASE,
+)
+
+VEHICLE_PATTERNS: list[tuple[str, str, re.Pattern[str]]] = [
+    (
+        "special_machine",
+        "xe máy chuyên dùng",
+        re.compile(r"\bxe\s*máy\s*chuyên\s*dùng\b", flags=re.IGNORECASE),
+    ),
+    (
+        "car",
+        "xe ô tô",
+        re.compile(r"\b(ô\s*tô|xe\s*ô\s*tô|oto|ôto)\b", flags=re.IGNORECASE),
+    ),
+    (
+        "motorcycle",
+        "xe máy, xe mô tô, xe gắn máy",
+        re.compile(r"\b(xe\s*máy|mô\s*tô|xe\s*mô\s*tô|xe\s*gắn\s*máy)\b", flags=re.IGNORECASE),
+    ),
+    (
+        "bicycle",
+        "xe đạp, xe đạp máy",
+        re.compile(r"\b(xe\s*đạp|xe\s*đạp\s*máy|xe\s*đạp\s*điện)\b", flags=re.IGNORECASE),
+    ),
+]
+
+FOLLOWUP_PREFIX_PATTERN = re.compile(
+    r"^\s*(vậy|thế|còn|vậy\s*còn|thế\s*còn|nếu\s+vậy|nếu\s+thế)\b[,:\s]*",
     flags=re.IGNORECASE,
 )
 
 RESET_PATTERNS = re.compile(
-    r"\b(chủ\s*đề\s*khác|hỏi\s*câu\s*khác|bỏ\s*qua|không\s*liên\s*quan|quay\s*lại\s*từ\s*đầu|reset)\b",
+    r"\b("
+    r"chủ\s*đề\s*khác|hỏi\s*câu\s*khác|bỏ\s*qua|không\s*liên\s*quan|"
+    r"quay\s*lại\s*từ\s*đầu|reset|chat\s*mới"
+    r")\b",
     flags=re.IGNORECASE,
 )
 
-VEHICLE_PATTERNS = {
-    "ô tô": re.compile(r"\b(ô\s*tô|xe\s*ô\s*tô|oto|ôto)\b", re.IGNORECASE),
-    "xe máy": re.compile(r"\b(xe\s*máy|mô\s*tô|xe\s*mô\s*tô|xe\s*gắn\s*máy)\b", re.IGNORECASE),
-    "xe đạp": re.compile(r"\b(xe\s*đạp|xe\s*đạp\s*điện)\b", re.IGNORECASE),
-    "xe máy chuyên dùng": re.compile(r"\b(xe\s*máy\s*chuyên\s*dùng)\b", re.IGNORECASE),
-}
 
-PENALTY_PATTERNS = re.compile(
-    r"\b(mức\s*phạt|bị\s*phạt|xử\s*phạt|phạt\s*bao\s*nhiêu|phạt\s*thế\s*nào|"
-    r"có\s*bị\s*phạt|vượt\s*quá|quá\s*thời\s*gian)\b",
-    flags=re.IGNORECASE,
-)
-
-EFFECTIVITY_PATTERNS = re.compile(
-    r"\b(còn\s*hiệu\s*lực|hết\s*hiệu\s*lực|còn\s*áp\s*dụng|hiện\s*nay|hiệu\s*lực)\b",
-    flags=re.IGNORECASE,
-)
-
-TIME_DRIVING_PATTERNS = re.compile(
-    r"\b(thời\s*gian\s*lái\s*xe|lái\s*xe\s*liên\s*tục|thời\s*gian\s*làm\s*việc\s*của\s*người\s*lái\s*xe)\b",
-    flags=re.IGNORECASE,
-)
-
-GENERIC_ENTITY_SURFACES = {
-    "người",
-    "phương tiện",
-    "đường bộ",
-    "văn bản",
-    "quy định",
-    "hành vi",
-}
-
-
-@dataclass
-class ConversationMemory:
-    topic: str = ""
-    last_rewritten_query: str = ""
-    entities: list[dict[str, Any]] = field(default_factory=list)
-    documents: list[dict[str, Any]] = field(default_factory=list)
-    passages: list[dict[str, Any]] = field(default_factory=list)
-    constraints: dict[str, str] = field(default_factory=dict)
-    turn_count: int = 0
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
-def empty_memory() -> ConversationMemory:
-    return ConversationMemory()
+def empty_memory(session_id: str = DEFAULT_SESSION_ID) -> ConversationMemory:
+    return ConversationState(session_id=session_id)
 
 
 def is_reset_query(query: str) -> bool:
     return bool(RESET_PATTERNS.search(query or ""))
 
 
-def is_contextual_followup(query: str) -> bool:
-    query = query or ""
-    return bool(FOLLOWUP_PATTERNS.search(query))
+def _entity_text(entity: dict[str, Any] | MemoryEntity) -> str:
+    if isinstance(entity, MemoryEntity):
+        return entity.text
+    if isinstance(entity, str):
+        return entity.strip()
+    if not isinstance(entity, dict):
+        return ""
+    return str(
+        entity.get("canonical")
+        or entity.get("surface")
+        or entity.get("text")
+        or entity.get("entity_id")
+        or ""
+    ).strip()
 
 
-def detect_vehicle(query: str) -> str | None:
-    for vehicle, pattern in VEHICLE_PATTERNS.items():
-        if pattern.search(query or ""):
-            return vehicle
-    return None
+def _entity_label(entity: dict[str, Any] | MemoryEntity) -> str | None:
+    if isinstance(entity, MemoryEntity):
+        return entity.label
+    if not isinstance(entity, dict):
+        return None
+    value = entity.get("label")
+    return str(value).strip() if value else None
 
 
-def detect_intent(query: str) -> str | None:
-    query = query or ""
-    if PENALTY_PATTERNS.search(query):
-        return "penalty"
-    if EFFECTIVITY_PATTERNS.search(query):
-        return "effectivity"
-    if TIME_DRIVING_PATTERNS.search(query):
-        return "time_driving"
-    return None
+def _doc_id(document: dict[str, Any] | MemoryDocument) -> str:
+    if isinstance(document, MemoryDocument):
+        return document.doc_id
+    if isinstance(document, str):
+        return document.strip()
+    if not isinstance(document, dict):
+        return ""
+    return str(
+        document.get("document_number")
+        or document.get("doc_id")
+        or document.get("document_id")
+        or ""
+    ).strip()
 
 
-def _dedupe_by_key(items: list[dict[str, Any]], key: str, limit: int) -> list[dict[str, Any]]:
+def _doc_title(document: dict[str, Any] | MemoryDocument) -> str | None:
+    if isinstance(document, MemoryDocument):
+        return document.title
+    if not isinstance(document, dict):
+        return None
+    value = document.get("document_title") or document.get("title")
+    return str(value).strip() if value else None
+
+
+def _coerce_entities(raw_entities: list[Any], limit: int = 8) -> list[MemoryEntity]:
+    entities: list[MemoryEntity] = []
     seen = set()
-    output = []
-    for item in items:
-        value = item.get(key)
-        if not value or value in seen:
+    for item in raw_entities or []:
+        text = _entity_text(item)
+        if not text:
             continue
-        seen.add(value)
-        output.append(item)
-        if len(output) >= limit:
+        key = text.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        entities.append(MemoryEntity(text=text, label=_entity_label(item)))
+        if len(entities) >= limit:
             break
-    return output
+    return entities
 
 
-def _compact_text(text: str | None, limit: int = 420) -> str:
-    text = re.sub(r"\s+", " ", text or "").strip()
-    if len(text) <= limit:
+def _coerce_documents(raw_documents: list[Any], limit: int = 5) -> list[MemoryDocument]:
+    documents: list[MemoryDocument] = []
+    seen = set()
+    for item in raw_documents or []:
+        doc_id = _doc_id(item)
+        if not doc_id:
+            continue
+        key = doc_id.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        documents.append(MemoryDocument(doc_id=doc_id, title=_doc_title(item)))
+        if len(documents) >= limit:
+            break
+    return documents
+
+
+def coerce_memory(memory: ConversationMemory | dict[str, Any] | None) -> ConversationMemory | None:
+    if memory is None:
+        return None
+    if isinstance(memory, ConversationState):
+        return memory
+    if not isinstance(memory, dict):
+        return None
+
+    session_id = str(memory.get("session_id") or DEFAULT_SESSION_ID)
+
+    # New memory schema.
+    if "active_topic" in memory or "focus_entities" in memory or "focus_docs" in memory:
+        state = ConversationState(session_id=session_id)
+        state.active_topic = memory.get("active_topic") or None
+        state.last_user_question = memory.get("last_user_question") or None
+        state.last_standalone_question = memory.get("last_standalone_question") or None
+        state.last_answer_summary = memory.get("last_answer_summary") or None
+        state.last_intent = memory.get("last_intent") or None
+        state.last_citations = list(memory.get("last_citations") or [])
+        state.recent_turns = list(memory.get("recent_turns") or [])
+        try:
+            state.turn_count = int(memory.get("turn_count") or 0)
+        except (TypeError, ValueError):
+            state.turn_count = 0
+        state.focus_entities = _coerce_entities(memory.get("focus_entities") or [])
+        state.focus_docs = _coerce_documents(memory.get("focus_docs") or [])
+        return state
+
+    # Legacy schema used by the previous answer_generation.conversation_memory.
+    state = ConversationState(session_id=session_id)
+    state.active_topic = str(memory.get("topic") or memory.get("last_rewritten_query") or "") or None
+    state.last_user_question = str(memory.get("last_rewritten_query") or "") or None
+    state.last_standalone_question = str(memory.get("last_rewritten_query") or "") or None
+    try:
+        state.turn_count = int(memory.get("turn_count") or 0)
+    except (TypeError, ValueError):
+        state.turn_count = 0
+    state.focus_entities = _coerce_entities(memory.get("entities") or [])
+    state.focus_docs = _coerce_documents(memory.get("documents") or [])
+    return state
+
+
+def _state_for_plan(memory: ConversationMemory | None) -> ConversationMemory | None:
+    if memory and memory.turn_count > 0:
+        return memory
+    return None
+
+
+def _clean_memory_base(text: str) -> str:
+    value = re.sub(r"\s+", " ", text or "").strip()
+    marker_match = MEMORY_MARKER_PATTERN.search(value)
+    if marker_match:
+        value = value[: marker_match.start()].strip()
+    return value.strip(" .")
+
+
+def _detect_vehicle(text: str) -> tuple[str, str] | None:
+    for vehicle_key, replacement, pattern in VEHICLE_PATTERNS:
+        if pattern.search(text or ""):
+            return vehicle_key, replacement
+    return None
+
+
+def _replace_vehicle(text: str, replacement: str) -> tuple[str, bool]:
+    for _, _, pattern in VEHICLE_PATTERNS:
+        if pattern.search(text or ""):
+            return pattern.sub(replacement, text, count=1).strip(), True
+    return text, False
+
+
+def _append_doc_hint(text: str, docs: list[str]) -> str:
+    if not docs:
         return text
-    return text[:limit].rstrip() + "..."
+    doc_hint = "; ".join(docs[:2])
+    if not doc_hint or doc_hint.lower() in text.lower():
+        return text
+    return f"{text.strip(' .')} theo {doc_hint}"
 
 
-def _surface(entity: dict[str, Any]) -> str:
-    return str(entity.get("canonical") or entity.get("surface") or entity.get("text") or "").strip()
+def _rule_rewrite_followup(question: str, state: ConversationState | None, intent: str) -> str:
+    if not state:
+        return question
+
+    base = _clean_memory_base(state.last_standalone_question or state.active_topic or "")
+    focus_docs = [d.doc_id for d in state.focus_docs[:2] if d.doc_id]
+    current_question = re.sub(r"\s+", " ", question or "").strip()
+
+    target_vehicle = _detect_vehicle(current_question)
+    if base and target_vehicle:
+        _, replacement = target_vehicle
+        rewritten, replaced = _replace_vehicle(base, replacement)
+        if replaced:
+            return _append_doc_hint(rewritten, focus_docs)
+        return _append_doc_hint(f"{base} đối với {replacement}", focus_docs)
+
+    if not base:
+        return current_question
+
+    cleaned_followup = FOLLOWUP_PREFIX_PATTERN.sub("", current_question).strip(" ,.;")
+    if not cleaned_followup:
+        return _append_doc_hint(base, focus_docs)
+
+    rewritten = f"{base}. {cleaned_followup}"
+    return _append_doc_hint(rewritten, focus_docs)
 
 
-def _is_useful_entity(entity: dict[str, Any]) -> bool:
-    surface = _surface(entity).lower()
-    if not surface or surface in GENERIC_ENTITY_SURFACES:
-        return False
-    return entity.get("label") in {
-        "BEHAVIOR",
-        "CONDITION",
-        "VEHICLE",
-        "VEHICLE_CONDITION_OR_EQUIPMENT",
-        "DOCUMENT",
-        "ACTOR",
-        "INFRASTRUCTURE",
-    }
+def prepare_memory_plan(query: str, memory: ConversationMemory | dict[str, Any] | None) -> QueryPlan:
+    state = _state_for_plan(coerce_memory(memory))
+    session_id = state.session_id if state else DEFAULT_SESSION_ID
+    return build_plan(
+        session_id=session_id,
+        question=query,
+        state=state,
+        rewrite_fn=_rule_rewrite_followup,
+    )
 
 
 def build_memory_context(memory: ConversationMemory, current_query: str) -> str:
-    if not memory or memory.turn_count == 0:
+    if is_reset_query(current_query):
         return ""
-
-    if not is_contextual_followup(current_query):
-        return ""
-
-    parts: list[str] = []
-
-    if memory.topic:
-        parts.append(f"Chủ đề gốc cần giữ: {memory.topic}")
-
-    current_intent = detect_intent(current_query)
-    if current_intent == "penalty":
-        parts.append(
-            "Ý định lượt hiện tại: hỏi mức xử phạt/hậu quả đối với hành vi hoặc quy định đã nêu ở lượt trước."
-        )
-    elif current_intent == "effectivity":
-        parts.append("Ý định lượt hiện tại: hỏi hiệu lực/tình trạng áp dụng của quy định hoặc văn bản đã nêu.")
-    elif current_intent == "time_driving":
-        parts.append("Ý định lượt hiện tại: hỏi quy định về thời gian lái xe liên tục/thời gian làm việc của người lái xe.")
-
-    constraints = dict(memory.constraints)
-
-    current_vehicle = detect_vehicle(current_query)
-    if current_vehicle:
-        constraints["vehicle"] = current_vehicle
-
-    if current_intent:
-        constraints["intent"] = current_intent
-
-    if constraints:
-        constraint_text = "; ".join(f"{k}: {v}" for k, v in constraints.items() if v)
-        if constraint_text:
-            parts.append(f"Ràng buộc đã biết: {constraint_text}")
-
-    useful_entities = [e for e in memory.entities if _is_useful_entity(e)]
-    if useful_entities:
-        ents = []
-        for e in useful_entities[:8]:
-            surface = _surface(e)
-            label = e.get("label")
-            ents.append(f"{surface} ({label})" if label else surface)
-        if ents:
-            parts.append("Thực thể trọng tâm: " + "; ".join(ents))
-
-    if memory.documents:
-        docs = []
-        for d in memory.documents[:3]:
-            number = d.get("document_number") or d.get("document_id")
-            title = d.get("document_title")
-            if number and title:
-                docs.append(f"{number} - {title}")
-            elif number:
-                docs.append(str(number))
-        if docs:
-            parts.append("Văn bản đang tham chiếu: " + "; ".join(docs))
-
-    if memory.passages:
-        refs = []
-        for p in memory.passages[:3]:
-            path = p.get("path_text")
-            doc = p.get("document_number")
-            text_sample = p.get("text_sample")
-            ref = ""
-            if path and doc:
-                ref = f"{path}, {doc}"
-            elif path:
-                ref = str(path)
-            elif doc:
-                ref = str(doc)
-            if text_sample:
-                ref = f"{ref}: {_compact_text(text_sample, 260)}" if ref else _compact_text(text_sample, 260)
-            if ref:
-                refs.append(ref)
-        if refs:
-            parts.append("Passage/căn cứ gần nhất: " + " | ".join(refs))
-
-    parts.append(
-        "Quy tắc dùng memory: hiểu câu hỏi hiện tại trong chủ đề trên; không tự chuyển sang chủ đề khác nếu người dùng chỉ nói 'quy định này', 'cụ thể', 'vượt quá thời gian này'."
-    )
-
-    return "\n".join(parts)
+    plan = prepare_memory_plan(current_query, memory)
+    return plan.answer_memory_context if plan.use_memory else ""
 
 
 def expand_query_with_memory(query: str, memory: ConversationMemory | None) -> tuple[str, str]:
-    if not memory:
+    if not memory or is_reset_query(query):
         return query, ""
 
+    plan = prepare_memory_plan(query, memory)
+    if not plan.use_memory:
+        return query, ""
+
+    memory_context = plan.answer_memory_context
+    expanded_query = plan.primary_query or query
+    return expanded_query, memory_context
+
+
+def _context_from_resolution(state: ConversationState | None, result: ConversationResolveResult) -> str:
+    if not state or not result.use_memory:
+        return ""
+    docs = "; ".join(d.doc_id for d in state.focus_docs[:3] if d.doc_id)
+    entities = "; ".join(e.text for e in state.focus_entities[:5] if e.text)
+    parts = [
+        f"Trọng tâm lượt hiện tại: {result.current_focus or result.standalone_question}",
+        f"Quan hệ với lượt trước: {result.relation}",
+    ]
+    if result.changed_constraints:
+        parts.append(f"Ràng buộc thay đổi: {result.changed_constraints}")
+    if entities:
+        parts.append(f"Thực thể lượt trước liên quan: {entities}")
+    if docs:
+        parts.append(f"Văn bản liên quan gần nhất: {docs}")
+    if state.last_answer_summary:
+        parts.append(f"Tóm tắt lượt trước: {state.last_answer_summary}")
+    return "\n".join(part for part in parts if part)
+
+
+def resolve_query_with_memory(
+    query: str,
+    memory: ConversationMemory | dict[str, Any] | None,
+    llm_call: Callable[[list[dict[str, str]]], str] | None = None,
+    enable_llm: bool = True,
+    min_confidence: float = 0.55,
+) -> tuple[str, str, dict[str, Any]]:
     if is_reset_query(query):
-        return query, ""
+        return query, "", {
+            "accepted": False,
+            "used_llm": False,
+            "reason": "reset query",
+        }
 
-    memory_context = build_memory_context(memory, query)
-    if not memory_context:
-        return query, ""
+    state = _state_for_plan(coerce_memory(memory))
+    if not state:
+        return query, "", {
+            "accepted": False,
+            "used_llm": False,
+            "reason": "no usable memory",
+        }
 
-    expanded = (
-        f"Câu hỏi nối tiếp: {query}\n\n"
-        f"Ngữ cảnh hội thoại đã chuẩn hóa:\n{memory_context}"
-    )
-    return expanded, memory_context
+    fallback_plan = prepare_memory_plan(query, state)
+    fallback_query = fallback_plan.primary_query if fallback_plan.use_memory else query
+    fallback_context = fallback_plan.answer_memory_context if fallback_plan.use_memory else ""
+
+    debug: dict[str, Any] = {
+        "accepted": False,
+        "used_llm": False,
+        "reason": "rule fallback",
+        "fallback_plan": fallback_plan.debug,
+    }
+
+    if not (enable_llm and llm_call and should_call_conversation_resolver(query, state)):
+        return fallback_query, fallback_context, debug
+
+    try:
+        result = resolve_with_llm(query, state, llm_call)
+    except Exception as exc:
+        debug["used_llm"] = True
+        debug["reason"] = f"resolver failed: {exc}"
+        return fallback_query, fallback_context, debug
+
+    if not result:
+        debug["used_llm"] = True
+        debug["reason"] = "resolver returned empty result"
+        return fallback_query, fallback_context, debug
+
+    result_dict = result.to_dict()
+    result_dict["accepted"] = False
+
+    resolved_query = (result.retrieval_query or result.standalone_question or query).strip()
+    if not resolved_query:
+        result_dict["reason"] = result.reason or "resolver returned empty retrieval query"
+        return fallback_query, fallback_context, result_dict
+
+    if result.error or result.confidence < min_confidence:
+        result_dict["reason"] = result.reason or result.error or "resolver confidence below threshold"
+        return fallback_query, fallback_context, result_dict
+
+    result_dict["accepted"] = True
+    memory_context = _context_from_resolution(state, result)
+    return resolved_query, memory_context, result_dict
+
+
+def _compact_text(text: str | None, limit: int = 350) -> str:
+    value = re.sub(r"\s+", " ", text or "").strip()
+    if len(value) <= limit:
+        return value
+    return value[:limit].rstrip() + "..."
+
+
+def _entities_from_retrieval(retrieval: dict[str, Any] | None, passages: list[dict[str, Any]]) -> list[str]:
+    entities: list[str] = []
+    if retrieval:
+        for item in retrieval.get("activated_entities") or []:
+            text = _entity_text(item)
+            if text:
+                entities.append(text)
+    entities.extend(extract_entities_simple("", passages))
+    return unique_keep_order(entities)[:8]
 
 
 def update_memory_after_answer(
@@ -262,66 +406,32 @@ def update_memory_after_answer(
     original_query: str,
     retrieval_query: str,
     retrieval: dict[str, Any] | None,
+    answer: str = "",
 ) -> ConversationMemory:
     if memory is None or is_reset_query(original_query):
         memory = empty_memory()
-
-    followup = is_contextual_followup(original_query)
-    memory.turn_count += 1
-    memory.last_rewritten_query = retrieval_query or original_query
-
-    vehicle = detect_vehicle(original_query) or detect_vehicle(retrieval_query)
-    if vehicle:
-        memory.constraints["vehicle"] = vehicle
-
-    intent = detect_intent(original_query) or detect_intent(retrieval_query)
-    if intent:
-        memory.constraints["intent"] = intent
-
-    # Không để các lượt follow-up mơ hồ như "cụ thể là bị phạt thế nào"
-    # ghi đè topic gốc. Đây là nguyên nhân làm memory trôi chủ đề.
-    if retrieval_query and (not followup or not memory.topic):
-        memory.topic = _compact_text(retrieval_query, 300)
-
-    if not retrieval:
-        return memory
-
-    activated = [e for e in (retrieval.get("activated_entities") or []) if _is_useful_entity(e)]
-    if followup:
-        memory.entities = _dedupe_by_key(memory.entities + activated, key="entity_id", limit=12)
     else:
-        memory.entities = _dedupe_by_key(activated + memory.entities, key="entity_id", limit=12)
+        memory = coerce_memory(memory) or empty_memory()
 
-    results = retrieval.get("results") or []
+    passages = list((retrieval or {}).get("results") or [])
+    plan = prepare_memory_plan(original_query, memory)
+    if retrieval_query:
+        plan.primary_query = retrieval_query
+        plan.answer_question = retrieval_query
+        if plan.retrieval_queries:
+            plan.retrieval_queries = unique_keep_order([*plan.retrieval_queries, retrieval_query])
+        else:
+            plan.retrieval_queries = unique_keep_order([original_query, retrieval_query])
 
-    new_docs = []
-    for r in results[:5]:
-        new_docs.append({
-            "document_id": r.get("document_id"),
-            "document_number": r.get("document_number"),
-            "document_title": r.get("document_title"),
-        })
+    updated = update_state_after_answer(
+        state=memory,
+        plan=plan,
+        answer=answer or "",
+        retrieved_passages=passages,
+        entity_extractor=lambda question, found_passages: _entities_from_retrieval(retrieval, found_passages),
+    )
 
-    if followup:
-        memory.documents = _dedupe_by_key(memory.documents + new_docs, key="document_number", limit=5)
-    else:
-        memory.documents = _dedupe_by_key(new_docs + memory.documents, key="document_number", limit=5)
+    if not updated.last_answer_summary and answer:
+        updated.last_answer_summary = _compact_text(answer)
 
-    new_passages = []
-    for r in results[:5]:
-        new_passages.append({
-            "passage_id": r.get("passage_id"),
-            "document_number": r.get("document_number"),
-            "document_title": r.get("document_title"),
-            "path_text": r.get("path_text"),
-            "text_sample": _compact_text(r.get("text"), 500),
-            "score": r.get("score"),
-        })
-
-    if followup:
-        # Với follow-up, ưu tiên giữ passage cũ trước để không bị kết quả truy xuất sai ghi đè.
-        memory.passages = _dedupe_by_key(memory.passages + new_passages, key="passage_id", limit=8)
-    else:
-        memory.passages = _dedupe_by_key(new_passages + memory.passages, key="passage_id", limit=8)
-
-    return memory
+    return updated

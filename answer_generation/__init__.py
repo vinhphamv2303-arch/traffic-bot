@@ -24,6 +24,7 @@ from .conversation_memory import (
     build_memory_context,
     empty_memory,
     expand_query_with_memory,
+    resolve_query_with_memory,
     update_memory_after_answer,
 )
 
@@ -48,6 +49,7 @@ __all__ = [
     "preprocess_user_query",
     "repair_mojibake",
     "repair_mojibake_text",
+    "resolve_query_with_memory",
     "retrieve_passages_for_query",
     "run_retrieval_stage",
     "run_retriever",

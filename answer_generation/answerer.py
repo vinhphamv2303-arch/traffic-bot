@@ -15,9 +15,10 @@ from typing import Any
 
 from answer_generation.conversation_memory import (
     ConversationMemory,
+    coerce_memory,
     empty_memory,
-    expand_query_with_memory,
     is_reset_query,
+    resolve_query_with_memory,
     update_memory_after_answer,
 )
 
@@ -212,31 +213,73 @@ def repair_mojibake(value: Any) -> Any:
 
 
 def _coerce_conversation_memory(memory: ConversationMemory | dict[str, Any] | None) -> ConversationMemory | None:
-    if memory is None:
-        return None
-    if isinstance(memory, ConversationMemory):
-        return memory
-    if not isinstance(memory, dict):
-        return None
-
-    try:
-        turn_count = int(memory.get("turn_count") or 0)
-    except (TypeError, ValueError):
-        turn_count = 0
-
-    return ConversationMemory(
-        topic=str(memory.get("topic") or ""),
-        last_rewritten_query=str(memory.get("last_rewritten_query") or ""),
-        entities=list(memory.get("entities") or []),
-        documents=list(memory.get("documents") or []),
-        passages=list(memory.get("passages") or []),
-        constraints=dict(memory.get("constraints") or {}),
-        turn_count=turn_count,
-    )
+    return coerce_memory(memory)
 
 
 def _memory_dict(memory: ConversationMemory | None) -> dict[str, Any]:
     return (memory or empty_memory()).to_dict()
+
+
+def _make_conversation_resolver_llm_call(
+    model_name: str,
+    mode: str,
+    tokenizer=None,
+    model=None,
+    api_key: str | None = None,
+    base_url: str | None = None,
+):
+    def llm_call(messages: list[dict[str, str]]) -> str:
+        return generate_answer_with_backend(
+            messages=messages,
+            model_name=model_name,
+            mode=mode,
+            tokenizer=tokenizer,
+            model=model,
+            api_key=api_key,
+            base_url=base_url,
+            max_new_tokens=700,
+            temperature=0.0,
+            top_p=1.0,
+        )
+
+    return llm_call
+
+
+def _map_resolver_route(route: str) -> str:
+    route = (route or "").strip().lower()
+    if route in {"normal_chat", ROUTE_GENERAL_CHAT}:
+        return ROUTE_GENERAL_CHAT
+    if route == "effectivity_index":
+        return "effectivity_index"
+    return ROUTE_TRAFFIC_LAW
+
+
+def _query_preprocessing_from_resolution(
+    original_query: str,
+    processing_query: str,
+    resolution: dict[str, Any],
+) -> dict[str, Any] | None:
+    if not resolution.get("accepted"):
+        return None
+
+    route = _map_resolver_route(str(resolution.get("route") or ""))
+    force_retrieval = _should_force_retrieval(original_query) or _should_force_retrieval(processing_query)
+    if route == ROUTE_GENERAL_CHAT and force_retrieval:
+        route = ROUTE_TRAFFIC_LAW
+
+    rewritten_query = "" if route == ROUTE_GENERAL_CHAT else processing_query
+    return {
+        "route": route,
+        "rewritten_query": repair_mojibake_text(rewritten_query),
+        "reason": (
+            "traffic-domain heuristic override"
+            if route == ROUTE_TRAFFIC_LAW and force_retrieval and resolution.get("route") in {"normal_chat", ROUTE_GENERAL_CHAT}
+            else f"conversation resolver: {resolution.get('relation') or ''}; {resolution.get('reason') or ''}".strip()
+        ),
+        "chat_answer": "",
+        "raw_response": resolution.get("raw_response") or "",
+        "conversation_resolution": resolution,
+    }
 
 
 def load_dotenv(path: Path | None = None) -> None:
@@ -811,8 +854,21 @@ def _has_time_driving_terms(text: str) -> bool:
     )
 
 
-def _query_profile(query: str) -> dict[str, bool]:
+def _vehicle_target_from_query(normalized: str) -> str | None:
+    if re.search(r"\bxe\s+may\s+chuyen\s+dung\b", normalized):
+        return "special_machine"
+    if re.search(r"\b(xe\s+may|mo\s+to|xe\s+mo\s+to|xe\s+gan\s+may)\b", normalized):
+        return "motorcycle"
+    if re.search(r"\b(xe\s+o\s+to|o\s+to|oto)\b", normalized):
+        return "car"
+    if re.search(r"\b(xe\s+dap|xe\s+dap\s+may|xe\s+dap\s+dien)\b", normalized):
+        return "bicycle"
+    return None
+
+
+def _query_profile(query: str) -> dict[str, Any]:
     normalized = _normalize_for_match(query)
+    vehicle_target = _vehicle_target_from_query(normalized)
     penalty = bool(
         PENALTY_QUERY_PATTERN.search(query)
         or re.search(r"\b(muc\s+phat|bi\s+phat|phat\s+bao\s+nhieu|xu\s+phat|phat\s+tien|tien\s+phat)\b", normalized)
@@ -843,15 +899,22 @@ def _query_profile(query: str) -> dict[str, bool]:
         "criminal_intent": criminal_intent,
         "administrative_penalty": penalty and not criminal_intent,
         "time_driving": time_driving,
+        "traffic_light_signal": (
+            "den tin hieu giao thong" in normalized
+            or "den tin hieu dieu khien giao thong" in normalized
+            or "vuot den do" in normalized
+            or "khong chap hanh hieu lenh cua den tin hieu" in normalized
+        ),
         "low_emission_stage": (
             "vung phat thai thap" in normalized
             and ("lo trinh" in normalized or "giai doan" in normalized or "trien khai" in normalized)
         ),
-        "vehicle_unspecified": not any(token in normalized for token in ["o to", "mo to", "xe may", "xe dap", "xe may chuyen dung"]),
+        "vehicle_target": vehicle_target,
+        "vehicle_unspecified": vehicle_target is None,
     }
 
 
-def _domain_relevance_score(result: dict[str, Any], profile: dict[str, bool]) -> tuple[float, list[str]]:
+def _domain_relevance_score(result: dict[str, Any], profile: dict[str, Any]) -> tuple[float, list[str]]:
     text = _result_match_text(result)
     score = 0.0
     notes: list[str] = []
@@ -887,6 +950,35 @@ def _domain_relevance_score(result: dict[str, Any], profile: dict[str, bool]) ->
     if profile["alcohol"] and profile["penalty"] and "nghi dinh quy dinh xu phat vi pham hanh chinh" in text:
         score += 2.0
         notes.append("admin_penalty_decree")
+
+    if profile.get("traffic_light_signal"):
+        if (
+            "khong chap hanh hieu lenh cua den tin hieu giao thong" in text
+            or "den tin hieu giao thong" in text
+            or "den tin hieu dieu khien giao thong" in text
+        ):
+            score += 4.0
+            notes.append("traffic_light_match")
+        else:
+            score -= 2.0
+            notes.append("missing_traffic_light")
+
+    vehicle_target = profile.get("vehicle_target")
+    if vehicle_target:
+        target_article = {
+            "car": "6",
+            "motorcycle": "7",
+            "special_machine": "8",
+            "bicycle": "9",
+        }.get(vehicle_target)
+        article_match = re.search(r"dieu\s+(6|7|8|9)\b", text)
+        if target_article and article_match:
+            if article_match.group(1) == target_article:
+                score += 5.0
+                notes.append("vehicle_article_match")
+            else:
+                score -= 4.0
+                notes.append("vehicle_article_mismatch")
 
     if profile["vehicle_unspecified"]:
         article_match = re.search(r"dieu\s+(6|7|8|9)\b", text)
@@ -977,6 +1069,15 @@ def postprocess_retrieval_for_query(
         if fine_scored:
             scored = fine_scored
 
+    if profile.get("traffic_light_signal"):
+        traffic_light_scored = [
+            (score, result)
+            for score, result in scored
+            if "missing_traffic_light" not in result.get("domain_rerank_notes", [])
+        ]
+        if traffic_light_scored:
+            scored = traffic_light_scored
+
     if profile.get("time_driving"):
         time_driving_scored = [
             (score, result)
@@ -1026,6 +1127,7 @@ def needs_retrieval_postprocess(original_query: str, retrieval_query: str) -> bo
         or profile["penalty"]
         or profile["low_emission_stage"]
         or profile.get("time_driving")
+        or profile.get("vehicle_target")
     )
 
 
@@ -1227,8 +1329,6 @@ def retrieve_passages_for_query(
 ) -> dict[str, Any]:
     original_query = repair_mojibake_text(query).strip()
     memory = _coerce_conversation_memory(conversation_memory)
-    processing_query, memory_context = expand_query_with_memory(original_query, memory)
-    processing_query = repair_mojibake_text(processing_query).strip()
     tokenizer = None
     model = None
 
@@ -1240,16 +1340,42 @@ def retrieve_passages_for_query(
             device_map=device_map,
         )
 
-    query_preprocessing = preprocess_user_query(
-        query=processing_query,
-        model_name=model_name,
-        mode=mode,
-        tokenizer=tokenizer,
-        model=model,
-        api_key=api_key,
-        base_url=base_url,
-        enabled=enable_query_rewrite,
+    resolver_llm_call = (
+        _make_conversation_resolver_llm_call(
+            model_name=model_name,
+            mode=mode,
+            tokenizer=tokenizer,
+            model=model,
+            api_key=api_key,
+            base_url=base_url,
+        )
+        if enable_query_rewrite
+        else None
     )
+    processing_query, memory_context, conversation_resolution = resolve_query_with_memory(
+        original_query,
+        memory,
+        llm_call=resolver_llm_call,
+        enable_llm=enable_query_rewrite,
+    )
+    processing_query = repair_mojibake_text(processing_query).strip()
+
+    query_preprocessing = _query_preprocessing_from_resolution(
+        original_query,
+        processing_query,
+        conversation_resolution,
+    )
+    if query_preprocessing is None:
+        query_preprocessing = preprocess_user_query(
+            query=processing_query,
+            model_name=model_name,
+            mode=mode,
+            tokenizer=tokenizer,
+            model=model,
+            api_key=api_key,
+            base_url=base_url,
+            enabled=enable_query_rewrite,
+        )
     route = query_preprocessing["route"]
     if route == ROUTE_GENERAL_CHAT and memory_context:
         route = ROUTE_TRAFFIC_LAW
@@ -1270,6 +1396,7 @@ def retrieve_passages_for_query(
             "route": route,
             "route_reason": query_preprocessing.get("reason", ""),
             "query_preprocessing": query_preprocessing,
+            "conversation_resolution": conversation_resolution,
             "retrieval": {"results": [], "activated_entities": [], "debug": {"route": route}},
             "conversation_memory": _memory_dict(updated_memory),
         }
@@ -1306,6 +1433,7 @@ def retrieve_passages_for_query(
         "route": route,
         "route_reason": query_preprocessing.get("reason", ""),
         "query_preprocessing": query_preprocessing,
+        "conversation_resolution": conversation_resolution,
         "retrieval": retrieval,
         "conversation_memory": _memory_dict(updated_memory),
     }
@@ -1656,14 +1784,40 @@ def answer_one(
 ) -> dict[str, Any]:
     original_query = repair_mojibake_text(query).strip()
     memory = _coerce_conversation_memory(conversation_memory)
-    processing_query, memory_context = expand_query_with_memory(original_query, memory)
-    processing_query = repair_mojibake_text(processing_query).strip()
     tokenizer = None
     model = None
 
+    if mode == "local" and enable_query_rewrite:
+        tokenizer, model = load_model(
+            model_name,
+            load_4bit=load_4bit,
+            dtype=dtype,
+            device_map=device_map,
+        )
+
+    resolver_llm_call = (
+        _make_conversation_resolver_llm_call(
+            model_name=model_name,
+            mode=mode,
+            tokenizer=tokenizer,
+            model=model,
+            api_key=api_key,
+            base_url=base_url,
+        )
+        if enable_query_rewrite
+        else None
+    )
+    processing_query, memory_context, conversation_resolution = resolve_query_with_memory(
+        original_query,
+        memory,
+        llm_call=resolver_llm_call,
+        enable_llm=enable_query_rewrite,
+    )
+    processing_query = repair_mojibake_text(processing_query).strip()
+
     early_effectivity_answer = _direct_effectivity_answer(processing_query)
     if early_effectivity_answer:
-        updated_memory = update_memory_after_answer(memory, original_query, processing_query, None)
+        updated_memory = update_memory_after_answer(memory, original_query, processing_query, None, answer=early_effectivity_answer)
         return {
             "query": original_query,
             "expanded_query": processing_query if memory_context else "",
@@ -1685,27 +1839,26 @@ def answer_one(
             "answer": early_effectivity_answer,
             "context_used": "Structured effectivity metadata from data/preprocessed/effectivity.",
             "retrieval": None,
+            "conversation_resolution": conversation_resolution,
             "conversation_memory": _memory_dict(updated_memory),
         }
 
-    if mode == "local" and enable_query_rewrite:
-        tokenizer, model = load_model(
-            model_name,
-            load_4bit=load_4bit,
-            dtype=dtype,
-            device_map=device_map,
-        )
-
-    query_preprocessing = preprocess_user_query(
-        query=processing_query,
-        model_name=model_name,
-        mode=mode,
-        tokenizer=tokenizer,
-        model=model,
-        api_key=api_key,
-        base_url=base_url,
-        enabled=enable_query_rewrite,
+    query_preprocessing = _query_preprocessing_from_resolution(
+        original_query,
+        processing_query,
+        conversation_resolution,
     )
+    if query_preprocessing is None:
+        query_preprocessing = preprocess_user_query(
+            query=processing_query,
+            model_name=model_name,
+            mode=mode,
+            tokenizer=tokenizer,
+            model=model,
+            api_key=api_key,
+            base_url=base_url,
+            enabled=enable_query_rewrite,
+        )
     route = query_preprocessing["route"]
     if route == ROUTE_GENERAL_CHAT and memory_context:
         route = ROUTE_TRAFFIC_LAW
@@ -1754,13 +1907,14 @@ def answer_one(
             "answer": answer,
             "context_used": "",
             "retrieval": None,
+            "conversation_resolution": conversation_resolution,
             "conversation_memory": _memory_dict(updated_memory),
         }
 
     direct_effectivity_answer = _direct_effectivity_answer(processing_query)
     if direct_effectivity_answer:
         retrieval_query = query_preprocessing.get("rewritten_query") or processing_query
-        updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, None)
+        updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, None, answer=direct_effectivity_answer)
         return {
             "query": original_query,
             "expanded_query": processing_query if memory_context else "",
@@ -1776,6 +1930,7 @@ def answer_one(
             "answer": direct_effectivity_answer,
             "context_used": "Structured effectivity metadata from data/preprocessed/effectivity.",
             "retrieval": None,
+            "conversation_resolution": conversation_resolution,
             "conversation_memory": _memory_dict(updated_memory),
         }
 
@@ -1843,7 +1998,7 @@ def answer_one(
                 top_p=top_p,
             )
 
-    updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, retrieval)
+    updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, retrieval, answer=answer)
     return {
         "query": original_query,
         "expanded_query": processing_query if memory_context else "",
@@ -1859,5 +2014,6 @@ def answer_one(
         "answer": answer,
         "context_used": context,
         "retrieval": retrieval,
+        "conversation_resolution": conversation_resolution,
         "conversation_memory": _memory_dict(updated_memory),
     }
