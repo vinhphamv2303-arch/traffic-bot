@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,14 +27,17 @@ class RetrievalPipelineConfig:
     description: str
 
 
+ProgressCallback = Callable[[str, dict[str, Any]], None]
+
+
 PIPELINES: dict[str, RetrievalPipelineConfig] = {
-    "hybrid_cpu": RetrievalPipelineConfig(
-        key="hybrid_cpu",
-        display_name="Hybrid CPU: BM25 + Graph + Reference",
-        index_dir=ROOT / "data" / "retrieval" / "index_bm25_graph",
-        weights={"dense": 0.0, "bm25": 0.25, "graph": 0.15, "reference": 0.60},
+    "hybrid_minilm": RetrievalPipelineConfig(
+        key="hybrid_minilm",
+        display_name="Hybrid MiniLM: Dense + BM25 + Graph + Reference",
+        index_dir=ROOT / "data" / "retrieval" / "index_minilm_hybrid",
+        weights={"dense": 0.20, "bm25": 0.30, "graph": 0.20, "reference": 0.30},
         use_reference_expansion=True,
-        description="Nhanh nhất để demo local vì không cần load embedding model.",
+        description="Hybrid pipeline using MiniLM.",
     ),
     "hybrid_bge_m3": RetrievalPipelineConfig(
         key="hybrid_bge_m3",
@@ -42,23 +45,23 @@ PIPELINES: dict[str, RetrievalPipelineConfig] = {
         index_dir=ROOT / "data" / "retrieval" / "index_bge_m3_hybrid",
         weights={"dense": 0.25, "bm25": 0.25, "graph": 0.20, "reference": 0.30},
         use_reference_expansion=True,
-        description="Pipeline đầy đủ nhất, dùng BGE-M3 cho dense retrieval.",
-    ),
-    "hybrid_minilm": RetrievalPipelineConfig(
-        key="hybrid_minilm",
-        display_name="Hybrid MiniLM: Dense + BM25 + Graph + Reference",
-        index_dir=ROOT / "data" / "retrieval" / "index_minilm_hybrid",
-        weights={"dense": 0.20, "bm25": 0.30, "graph": 0.20, "reference": 0.30},
-        use_reference_expansion=True,
-        description="Pipeline dense nhẹ hơn BGE-M3, phù hợp CPU hơn.",
+        description="Hybrid pipeline using BGE-M3.",
     ),
     "bm25": RetrievalPipelineConfig(
         key="bm25",
         display_name="Naive BM25",
-        index_dir=ROOT / "data" / "retrieval" / "index_bm25_graph",
+        index_dir=ROOT / "data" / "retrieval" / "index_minilm_hybrid",
         weights={"dense": 0.0, "bm25": 1.0, "graph": 0.0, "reference": 0.0},
         use_reference_expansion=False,
-        description="Baseline từ khóa, không dùng graph/reference.",
+        description="BM25 baseline without graph or reference expansion.",
+    ),
+    "dense_minilm": RetrievalPipelineConfig(
+        key="dense_minilm",
+        display_name="Naive Dense MiniLM",
+        index_dir=ROOT / "data" / "retrieval" / "index_minilm_hybrid",
+        weights={"dense": 1.0, "bm25": 0.0, "graph": 0.0, "reference": 0.0},
+        use_reference_expansion=False,
+        description="Dense baseline using MiniLM only.",
     ),
     "dense_bge_m3": RetrievalPipelineConfig(
         key="dense_bge_m3",
@@ -66,7 +69,7 @@ PIPELINES: dict[str, RetrievalPipelineConfig] = {
         index_dir=ROOT / "data" / "retrieval" / "index_bge_m3_hybrid",
         weights={"dense": 1.0, "bm25": 0.0, "graph": 0.0, "reference": 0.0},
         use_reference_expansion=False,
-        description="Baseline dense, không dùng graph/reference.",
+        description="Dense baseline using BGE-M3 only.",
     ),
 }
 
@@ -86,12 +89,12 @@ def validate_runtime_paths(config: RetrievalPipelineConfig) -> None:
     if not GAZETTEER_ROOT.exists():
         missing.append(str(GAZETTEER_ROOT))
     if missing:
-        raise FileNotFoundError("Thiếu artifact để chạy demo:\n" + "\n".join(missing))
+        raise FileNotFoundError("Thieu artifact de chay demo:\n" + "\n".join(missing))
 
 
 def run_demo_answer(
     question: str,
-    pipeline_key: str = "hybrid_cpu",
+    pipeline_key: str = "hybrid_minilm",
     mode: str = "openai",
     model_name: str | None = None,
     api_key: str | None = None,
@@ -105,6 +108,7 @@ def run_demo_answer(
     max_new_tokens: int = 512,
     temperature: float = 0.0,
     conversation_memory: dict[str, Any] | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     config = PIPELINES[pipeline_key]
     validate_runtime_paths(config)
@@ -134,6 +138,7 @@ def run_demo_answer(
         max_new_tokens=max_new_tokens,
         temperature=temperature,
         conversation_memory=conversation_memory,
+        progress_callback=progress_callback,
     )
     result["pipeline"] = pipeline_key
     result["pipeline_display_name"] = config.display_name
@@ -143,7 +148,7 @@ def run_demo_answer(
 
 def run_demo_retrieval(
     question: str,
-    pipeline_key: str = "hybrid_cpu",
+    pipeline_key: str = "hybrid_minilm",
     mode: str = "openai",
     model_name: str | None = None,
     api_key: str | None = None,
@@ -152,6 +157,7 @@ def run_demo_retrieval(
     candidate_k: int = 300,
     enable_query_router: bool = True,
     conversation_memory: dict[str, Any] | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     config = PIPELINES[pipeline_key]
     validate_runtime_paths(config)
@@ -176,6 +182,7 @@ def run_demo_retrieval(
         enable_query_rewrite=enable_query_router,
         api_key=api_key,
         base_url=base_url,
+        progress_callback=progress_callback,
     )
     result["pipeline"] = pipeline_key
     result["pipeline_display_name"] = config.display_name

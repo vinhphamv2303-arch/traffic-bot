@@ -906,9 +906,237 @@ def _typewriter(text: str, delay: float = 0.018):
         time.sleep(delay)
 
 
+def _short_text(value: Any, limit: int = 140) -> str:
+    text = " ".join(str(value or "").split())
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3].rstrip() + "..."
+
+
+def _progress_step_definitions(mode: str, lang: str) -> list[tuple[str, str]]:
+    if mode == "answer":
+        return [
+            ("resolver", t("step_analyzing", lang)),
+            ("route", "Xac dinh luong xu ly" if lang == "vi" else "Determine route"),
+            ("retrieval", t("step_retrieving", lang)),
+            ("context", "Chuan bi ngu canh" if lang == "vi" else "Prepare context"),
+            ("generation", t("step_generating", lang)),
+        ]
+    if mode == "retriever":
+        return [
+            ("resolver", t("step_analyzing", lang)),
+            ("route", "Xac dinh luong xu ly" if lang == "vi" else "Determine route"),
+            ("retrieval", t("step_retrieving", lang)),
+        ]
+    return []
+
+
+def _route_badge_text(route: str, lang: str) -> str:
+    mapping = {
+        "traffic_law": "Tra cuu phap luat giao thong" if lang == "vi" else "Traffic law RAG",
+        "general_chat": "Hoi dap thong thuong" if lang == "vi" else "General chat",
+        "effectivity_index": "Tra cuu hieu luc" if lang == "vi" else "Effectivity lookup",
+    }
+    return mapping.get(route or "", route or "unknown")
+
+
+def _create_progress_tracker(status, mode: str, lang: str, pipeline_name: str = "", model_name: str = ""):
+    step_defs = _progress_step_definitions(mode, lang)
+    step_order = [key for key, _ in step_defs]
+    step_labels = dict(step_defs)
+    step_state = {key: {"state": "pending", "detail": ""} for key in step_order}
+    meta_placeholder = st.empty()
+    steps_placeholder = st.empty()
+    note_placeholder = st.empty()
+    started_at = time.perf_counter()
+    current_note = ""
+
+    def render() -> None:
+        elapsed = time.perf_counter() - started_at
+        meta = []
+        if pipeline_name:
+            meta.append(f"Pipeline: **{pipeline_name}**")
+        if model_name and mode in {"answer", "retriever"}:
+            meta.append(f"Model: **{model_name}**")
+        meta.append(f"Elapsed: **{elapsed:.1f}s**")
+        meta_placeholder.markdown("  \n".join(meta))
+
+        icon_map = {
+            "pending": "WAIT",
+            "running": "RUN",
+            "done": "DONE",
+            "skipped": "SKIP",
+            "error": "ERR",
+        }
+        lines = []
+        for key in step_order:
+            state = step_state[key]["state"]
+            detail = step_state[key]["detail"]
+            line = f"- `{icon_map.get(state, 'WAIT')}` {step_labels[key]}"
+            if detail:
+                line += f"  \n  {_short_text(detail, 220)}"
+            lines.append(line)
+        steps_placeholder.markdown("\n".join(lines))
+
+        if current_note:
+            note_placeholder.caption(current_note)
+        else:
+            note_placeholder.empty()
+
+    def set_step(step_key: str, state: str | None = None, detail: str | None = None) -> None:
+        if step_key not in step_state:
+            return
+        if state is not None:
+            step_state[step_key]["state"] = state
+        if detail is not None:
+            step_state[step_key]["detail"] = detail
+        render()
+
+    def mark_skipped(step_key: str, detail: str) -> None:
+        if step_key in step_state and step_state[step_key]["state"] == "pending":
+            set_step(step_key, "skipped", detail)
+
+    def running_step() -> str | None:
+        for key in step_order:
+            if step_state[key]["state"] == "running":
+                return key
+        return None
+
+    def callback(stage: str, payload: dict[str, Any]) -> None:
+        nonlocal current_note
+
+        if stage == "loading_local_model":
+            current_note = f"Loading local model: {payload.get('model_name')}"
+            render()
+            return
+
+        if stage == "resolver_started":
+            status.update(label=t("step_analyzing", lang), state="running", expanded=True)
+            current_note = "Dang phan tich cau hoi..." if lang == "vi" else "Analyzing query..."
+            set_step("resolver", "running", "")
+            return
+
+        if stage == "resolver_done":
+            detail = payload.get("expanded_query") or payload.get("processing_query") or ""
+            if payload.get("used_memory"):
+                detail = f"{_short_text(detail)} | memory"
+            else:
+                detail = _short_text(detail)
+            set_step("resolver", "done", detail)
+            current_note = ""
+            return
+
+        if stage == "route_decided":
+            status.update(
+                label="Xac dinh luong xu ly..." if lang == "vi" else "Determining route...",
+                state="running",
+                expanded=True,
+            )
+            route_text = _route_badge_text(str(payload.get("route") or ""), lang)
+            reason = _short_text(payload.get("reason") or "", 120)
+            detail = route_text if not reason else f"{route_text} | {reason}"
+            set_step("route", "done", detail)
+            return
+
+        if stage == "effectivity_fast_path":
+            status.update(
+                label="Dang tra cuu hieu luc..." if lang == "vi" else "Checking structured effectivity...",
+                state="running",
+                expanded=True,
+            )
+            mark_skipped("retrieval", "Tra cuu truc tiep tu metadata" if lang == "vi" else "Used structured metadata")
+            mark_skipped("context", "Khong can truy xuat" if lang == "vi" else "No retrieval context needed")
+            mark_skipped("generation", "Khong can goi LLM" if lang == "vi" else "No LLM generation needed")
+            current_note = "Da dung fast-path hieu luc." if lang == "vi" else "Used structured effectivity fast-path."
+            return
+
+        if stage == "retrieval_started":
+            status.update(label=t("step_retrieving", lang), state="running", expanded=True)
+            detail = payload.get("retrieval_query") or ""
+            set_step("retrieval", "running", _short_text(detail))
+            current_note = (
+                f"candidate_k={payload.get('candidate_k')} | top_k={payload.get('requested_top_k')}"
+                if payload.get("candidate_k")
+                else ""
+            )
+            return
+
+        if stage == "retrieval_raw_done":
+            current_note = (
+                f"{payload.get('raw_result_count', 0)} raw passages | "
+                f"{payload.get('activated_entity_count', 0)} activated entities"
+            )
+            render()
+            return
+
+        if stage == "retrieval_done":
+            detail = (
+                f"{payload.get('result_count', 0)} passages | "
+                f"{payload.get('activated_entity_count', 0)} activated entities"
+            )
+            set_step("retrieval", "done", detail)
+            current_note = ""
+            return
+
+        if stage == "retrieval_skipped":
+            mark_skipped("retrieval", "Bo qua retrieval" if lang == "vi" else "Retrieval skipped")
+            return
+
+        if stage == "context_ready":
+            status.update(
+                label="Dang chuan bi ngu canh..." if lang == "vi" else "Preparing context...",
+                state="running",
+                expanded=True,
+            )
+            detail = (
+                f"{payload.get('context_passages', 0)} passages | "
+                f"{payload.get('context_chars', 0)} chars"
+            )
+            set_step("context", "done", detail)
+            return
+
+        if stage == "context_skipped":
+            mark_skipped("context", "Khong co ngu canh du ro" if lang == "vi" else "Context unavailable")
+            return
+
+        if stage == "generation_started":
+            status.update(label=t("step_generating", lang), state="running", expanded=True)
+            detail = payload.get("answer_mode") or payload.get("model_name") or ""
+            set_step("generation", "running", _short_text(detail))
+            current_note = "Dang doi mo hinh phan hoi..." if lang == "vi" else "Waiting for model response..."
+            return
+
+        if stage == "generation_done":
+            set_step("generation", "done", f"{payload.get('answer_chars', 0)} chars")
+            current_note = ""
+            return
+
+        if stage == "generation_skipped":
+            mark_skipped("generation", "Khong goi LLM do thieu ngu canh" if lang == "vi" else "Skipped due to missing context")
+            return
+
+        if stage == "completed":
+            current_note = ""
+            render()
+            status.update(label=t("step_done", lang), state="complete", expanded=False)
+
+    def fail(exc: Exception) -> None:
+        nonlocal current_note
+        key = running_step()
+        if key:
+            set_step(key, "error", str(exc))
+        current_note = str(exc)
+        render()
+        status.update(label=f"{t('error_prefix', lang)}", state="error", expanded=True)
+
+    render()
+    return callback, fail
+
+
 def handle_prompt(prompt: str, sidebar_settings: dict[str, Any], model_settings: dict[str, Any]) -> None:
     mode = sidebar_settings["mode"]
     lang = get_lang()
+    fail_progress = None
 
     # ── 1. Show user message immediately ──
     st.session_state.chat_history.append({"role": "user", "content": prompt, "kind": mode})
@@ -921,9 +1149,13 @@ def handle_prompt(prompt: str, sidebar_settings: dict[str, Any], model_settings:
         try:
             if mode == "answer":
                 with st.status(t("step_analyzing", lang), expanded=True) as status:
-                    status.update(label=t("step_retrieving", lang))
-                    st.write(f"Pipeline: **{PIPELINES[sidebar_settings['pipeline_key']].display_name}**")
-                    st.write(f"Model: **{model_settings['model_name']}**")
+                    progress_callback, fail_progress = _create_progress_tracker(
+                        status=status,
+                        mode="answer",
+                        lang=lang,
+                        pipeline_name=PIPELINES[sidebar_settings["pipeline_key"]].display_name,
+                        model_name=model_settings["model_name"],
+                    )
 
                     result = run_demo_answer(
                         question=prompt,
@@ -940,16 +1172,8 @@ def handle_prompt(prompt: str, sidebar_settings: dict[str, Any], model_settings:
                         max_new_tokens=model_settings["max_new_tokens"],
                         temperature=model_settings["temperature"],
                         conversation_memory=(st.session_state.conversation_memory if sidebar_settings["enable_memory"] else None),
+                        progress_callback=progress_callback,
                     )
-
-                    retrieval = result.get("retrieval") or {}
-                    n_passages = len(retrieval.get("results") or [])
-                    st.write(f"{t('passages_count', lang)}: **{n_passages}**")
-
-                    if result.get("rewritten_query"):
-                        st.write(f"{t('rewrite_label', lang)}: `{result['rewritten_query']}`")
-
-                    status.update(label=f"{t('step_done', lang)}", state="complete", expanded=False)
 
                 if sidebar_settings["enable_memory"]:
                     st.session_state.conversation_memory = result.get("conversation_memory") or st.session_state.conversation_memory
@@ -961,7 +1185,13 @@ def handle_prompt(prompt: str, sidebar_settings: dict[str, Any], model_settings:
 
             elif mode == "retriever":
                 with st.status(t("step_retrieving", lang), expanded=True) as status:
-                    st.write(f"Pipeline: **{PIPELINES[sidebar_settings['pipeline_key']].display_name}**")
+                    progress_callback, fail_progress = _create_progress_tracker(
+                        status=status,
+                        mode="retriever",
+                        lang=lang,
+                        pipeline_name=PIPELINES[sidebar_settings["pipeline_key"]].display_name,
+                        model_name=model_settings["model_name"],
+                    )
 
                     result = run_demo_retrieval(
                         question=prompt,
@@ -974,8 +1204,8 @@ def handle_prompt(prompt: str, sidebar_settings: dict[str, Any], model_settings:
                         candidate_k=sidebar_settings["candidate_k"],
                         enable_query_router=sidebar_settings["enable_query_router"],
                         conversation_memory=(st.session_state.conversation_memory if sidebar_settings["enable_memory"] else None),
+                        progress_callback=progress_callback,
                     )
-                    status.update(label=f"{t('step_done', lang)}", state="complete", expanded=False)
 
                 if sidebar_settings["enable_memory"]:
                     st.session_state.conversation_memory = result.get("conversation_memory") or st.session_state.conversation_memory
@@ -1002,6 +1232,8 @@ def handle_prompt(prompt: str, sidebar_settings: dict[str, Any], model_settings:
                 st.rerun()
 
         except Exception as exc:
+            if fail_progress is not None:
+                fail_progress(exc)
             error_content = f"{t('error_prefix', lang)}: `{exc}`"
             st.error(error_content)
             st.session_state.chat_history.append({"role": "assistant", "content": error_content, "kind": mode, "payload": None})

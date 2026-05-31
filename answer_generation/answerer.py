@@ -11,7 +11,7 @@ import csv
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from answer_generation.conversation_memory import (
     ConversationMemory,
@@ -25,6 +25,8 @@ from answer_generation.conversation_memory import (
 
 ROOT = Path(__file__).resolve().parents[1]
 EFFECTIVITY_ROOT = ROOT / "data" / "preprocessed" / "effectivity"
+
+ProgressCallback = Callable[[str, dict[str, Any]], None]
 
 INSUFFICIENT_CONTEXT_ANSWER = "Không tìm thấy căn cứ đủ rõ trong tài liệu được truy xuất."
 PROMPT_VERSION = "extractive_multi_agent_v2"
@@ -218,6 +220,15 @@ def _coerce_conversation_memory(memory: ConversationMemory | dict[str, Any] | No
 
 def _memory_dict(memory: ConversationMemory | None) -> dict[str, Any]:
     return (memory or empty_memory()).to_dict()
+
+
+def _emit_progress(progress_callback: ProgressCallback | None, stage: str, **payload: Any) -> None:
+    if progress_callback is None:
+        return
+    try:
+        progress_callback(stage, payload)
+    except Exception:
+        return
 
 
 def _make_conversation_resolver_llm_call(
@@ -1369,9 +1380,18 @@ def run_retrieval_stage(
     use_reference_expansion: bool = True,
     semantic_entity_top_k: int = 20,
     semantic_entity_min_score: float = 0.45,
+    progress_callback: ProgressCallback | None = None,
 ) -> tuple[str, dict[str, Any]]:
     retrieval_query = apply_rule_based_query_rewrite(retrieval_seed_query or original_query)
     retrieval_top_k = max(top_k, 40) if needs_retrieval_postprocess(original_query, retrieval_query) else top_k
+    _emit_progress(
+        progress_callback,
+        "retrieval_started",
+        retrieval_query=retrieval_query,
+        requested_top_k=top_k,
+        retrieval_top_k=retrieval_top_k,
+        candidate_k=candidate_k,
+    )
     retrieval = run_retriever(
         retriever_script=retriever_script,
         index_dir=index_dir,
@@ -1387,7 +1407,20 @@ def run_retrieval_stage(
         semantic_entity_top_k=semantic_entity_top_k,
         semantic_entity_min_score=semantic_entity_min_score,
     )
+    _emit_progress(
+        progress_callback,
+        "retrieval_raw_done",
+        raw_result_count=len(retrieval.get("results") or []),
+        activated_entity_count=len(retrieval.get("activated_entities") or []),
+    )
     retrieval = postprocess_retrieval_for_query(retrieval, original_query, retrieval_query, top_k=top_k)
+    _emit_progress(
+        progress_callback,
+        "retrieval_done",
+        retrieval_query=retrieval_query,
+        result_count=len(retrieval.get("results") or []),
+        activated_entity_count=len(retrieval.get("activated_entities") or []),
+    )
     return retrieval_query, retrieval
 
 
@@ -1414,6 +1447,7 @@ def retrieve_passages_for_query(
     load_4bit: bool = False,
     dtype: str = "auto",
     device_map: str = "auto",
+    progress_callback: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     original_query = repair_mojibake_text(query).strip()
     memory = _coerce_conversation_memory(conversation_memory)
@@ -1422,6 +1456,7 @@ def retrieve_passages_for_query(
     model = None
 
     if mode == "local" and enable_query_rewrite:
+        _emit_progress(progress_callback, "loading_local_model", purpose="resolver", model_name=model_name)
         tokenizer, model = load_model(
             model_name,
             load_4bit=load_4bit,
@@ -1429,6 +1464,7 @@ def retrieve_passages_for_query(
             device_map=device_map,
         )
 
+    _emit_progress(progress_callback, "resolver_started", query=original_query)
     resolver_llm_call = (
         _make_conversation_resolver_llm_call(
             model_name=model_name,
@@ -1449,6 +1485,15 @@ def retrieve_passages_for_query(
     )
     processing_query = repair_mojibake_text(processing_query).strip()
     display_resolved_query = _display_resolved_query(original_query, processing_query)
+    _emit_progress(
+        progress_callback,
+        "resolver_done",
+        processing_query=processing_query,
+        expanded_query=display_resolved_query,
+        used_memory=bool(memory_context),
+        relation=(conversation_resolution or {}).get("relation"),
+        confidence=(conversation_resolution or {}).get("confidence"),
+    )
 
     query_preprocessing = _query_preprocessing_from_resolution(
         original_query,
@@ -1463,6 +1508,13 @@ def retrieve_passages_for_query(
             memory_context=memory_context,
         )
     route = query_preprocessing["route"]
+    _emit_progress(
+        progress_callback,
+        "route_decided",
+        route=route,
+        reason=query_preprocessing.get("reason", ""),
+        memory_context=memory_context,
+    )
     if route == ROUTE_GENERAL_CHAT and memory_context:
         route = ROUTE_TRAFFIC_LAW
         query_preprocessing = dict(query_preprocessing)
@@ -1474,6 +1526,8 @@ def retrieve_passages_for_query(
     
     if route == ROUTE_GENERAL_CHAT:
         updated_memory = empty_memory() if is_reset_query(original_query) else memory
+        _emit_progress(progress_callback, "retrieval_skipped", reason="general_chat_route")
+        _emit_progress(progress_callback, "completed", route=route)
         return {
             "query": original_query,
             "expanded_query": display_resolved_query,
@@ -1509,8 +1563,10 @@ def retrieve_passages_for_query(
         use_reference_expansion=use_reference_expansion,
         semantic_entity_top_k=semantic_entity_top_k,
         semantic_entity_min_score=semantic_entity_min_score,
+        progress_callback=progress_callback,
     )
     updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, retrieval)
+    _emit_progress(progress_callback, "completed", route=route)
     return {
         "query": original_query,
         "expanded_query": display_resolved_query,
@@ -1867,6 +1923,7 @@ def answer_one(
     top_p: float = 0.9,
     repetition_penalty: float = 1.05,
     conversation_memory: ConversationMemory | dict[str, Any] | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     original_query = repair_mojibake_text(query).strip()
     memory = _coerce_conversation_memory(conversation_memory)
@@ -1875,6 +1932,7 @@ def answer_one(
     model = None
 
     if mode == "local" and enable_query_rewrite:
+        _emit_progress(progress_callback, "loading_local_model", purpose="resolver", model_name=model_name)
         tokenizer, model = load_model(
             model_name,
             load_4bit=load_4bit,
@@ -1882,6 +1940,7 @@ def answer_one(
             device_map=device_map,
         )
 
+    _emit_progress(progress_callback, "resolver_started", query=original_query)
     resolver_llm_call = (
         _make_conversation_resolver_llm_call(
             model_name=model_name,
@@ -1902,10 +1961,22 @@ def answer_one(
     )
     processing_query = repair_mojibake_text(processing_query).strip()
     display_resolved_query = _display_resolved_query(original_query, processing_query)
+    _emit_progress(
+        progress_callback,
+        "resolver_done",
+        processing_query=processing_query,
+        expanded_query=display_resolved_query,
+        used_memory=bool(memory_context),
+        relation=(conversation_resolution or {}).get("relation"),
+        confidence=(conversation_resolution or {}).get("confidence"),
+    )
 
     early_effectivity_answer = _direct_effectivity_answer(processing_query)
     if early_effectivity_answer:
         updated_memory = update_memory_after_answer(memory, original_query, processing_query, None, answer=early_effectivity_answer)
+        _emit_progress(progress_callback, "route_decided", route=ROUTE_TRAFFIC_LAW, reason="structured effectivity fast-path", memory_context=memory_context)
+        _emit_progress(progress_callback, "effectivity_fast_path", answer_mode="structured_effectivity")
+        _emit_progress(progress_callback, "completed", route=ROUTE_TRAFFIC_LAW)
         return {
             "query": original_query,
             "expanded_query": display_resolved_query,
@@ -1944,6 +2015,13 @@ def answer_one(
             memory_context=memory_context,
         )
     route = query_preprocessing["route"]
+    _emit_progress(
+        progress_callback,
+        "route_decided",
+        route=route,
+        reason=query_preprocessing.get("reason", ""),
+        memory_context=memory_context,
+    )
     if route == ROUTE_GENERAL_CHAT and memory_context:
         route = ROUTE_TRAFFIC_LAW
         query_preprocessing = dict(query_preprocessing)
@@ -1951,17 +2029,35 @@ def answer_one(
         query_preprocessing["rewritten_query"] = processing_query
         query_preprocessing["chat_answer"] = ""
         query_preprocessing["reason"] = "conversation memory follow-up override"
+        _emit_progress(
+            progress_callback,
+            "route_decided",
+            route=ROUTE_TRAFFIC_LAW,
+            reason=query_preprocessing["reason"],
+            memory_context=memory_context,
+        )
+        _emit_progress(
+            progress_callback,
+            "route_decided",
+            route=ROUTE_TRAFFIC_LAW,
+            reason=query_preprocessing["reason"],
+            memory_context=memory_context,
+        )
 
     if route == ROUTE_GENERAL_CHAT:
         answer = query_preprocessing.get("chat_answer") or ""
         if not answer:
             if mode == "local" and (tokenizer is None or model is None):
+                _emit_progress(progress_callback, "loading_local_model", purpose="answer", model_name=model_name)
                 tokenizer, model = load_model(
                     model_name,
                     load_4bit=load_4bit,
                     dtype=dtype,
                     device_map=device_map,
                 )
+            _emit_progress(progress_callback, "retrieval_skipped", reason="general_chat_route")
+            _emit_progress(progress_callback, "context_skipped", reason="general_chat_route")
+            _emit_progress(progress_callback, "generation_started", answer_mode="general_chat", model_name=model_name)
             answer = generate_answer_with_backend(
                 messages=build_general_chat_messages(original_query),
                 model_name=model_name,
@@ -1975,7 +2071,13 @@ def answer_one(
                 top_p=top_p,
                 repetition_penalty=repetition_penalty,
             )
+            _emit_progress(progress_callback, "generation_done", answer_chars=len(answer or ""))
+        else:
+            _emit_progress(progress_callback, "retrieval_skipped", reason="general_chat_route")
+            _emit_progress(progress_callback, "context_skipped", reason="general_chat_route")
+            _emit_progress(progress_callback, "generation_done", answer_chars=len(answer or ""))
         updated_memory = empty_memory() if is_reset_query(original_query) else memory
+        _emit_progress(progress_callback, "completed", route=route)
         return {
             "query": original_query,
             "expanded_query": display_resolved_query,
@@ -1999,6 +2101,8 @@ def answer_one(
     if direct_effectivity_answer:
         retrieval_query = query_preprocessing.get("rewritten_query") or processing_query
         updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, None, answer=direct_effectivity_answer)
+        _emit_progress(progress_callback, "effectivity_fast_path", answer_mode="structured_effectivity")
+        _emit_progress(progress_callback, "completed", route=route)
         return {
             "query": original_query,
             "expanded_query": display_resolved_query,
@@ -2040,25 +2144,38 @@ def answer_one(
         use_reference_expansion=use_reference_expansion,
         semantic_entity_top_k=semantic_entity_top_k,
         semantic_entity_min_score=semantic_entity_min_score,
+        progress_callback=progress_callback,
     )
     context = format_context(
         retrieval.get("results", []),
         max_passages=max_context_passages,
         max_chars_per_passage=max_chars_per_passage,
     )
+    context_passages = min(len(retrieval.get("results", [])), max_context_passages)
+    if not context.strip():
+        _emit_progress(progress_callback, "context_skipped", reason="empty_context", context_passages=0)
     if not context.strip():
         answer = INSUFFICIENT_CONTEXT_ANSWER
+        _emit_progress(progress_callback, "generation_skipped", reason="empty_context")
     else:
+        _emit_progress(
+            progress_callback,
+            "context_ready",
+            context_chars=len(context),
+            context_passages=context_passages,
+        )
         prompt_query = processing_query or original_query
         messages = build_prompt(prompt_query, context, answer_mode=answer_mode)
         if mode == "local":
             if tokenizer is None or model is None:
+                _emit_progress(progress_callback, "loading_local_model", purpose="answer", model_name=model_name)
                 tokenizer, model = load_model(
                     model_name,
                     load_4bit=load_4bit,
                     dtype=dtype,
                     device_map=device_map,
                 )
+            _emit_progress(progress_callback, "generation_started", answer_mode=answer_mode, model_name=model_name)
             answer = generate_answer_with_backend(
                 messages=messages,
                 model_name=model_name,
@@ -2071,6 +2188,7 @@ def answer_one(
                 repetition_penalty=repetition_penalty,
             )
         else:
+            _emit_progress(progress_callback, "generation_started", answer_mode=answer_mode, model_name=model_name)
             answer = generate_answer_with_backend(
                 messages=messages,
                 model_name=model_name,
@@ -2081,8 +2199,10 @@ def answer_one(
                 temperature=temperature,
                 top_p=top_p,
             )
+        _emit_progress(progress_callback, "generation_done", answer_chars=len(answer or ""))
 
     updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, retrieval, answer=answer)
+    _emit_progress(progress_callback, "completed", route=route)
     return {
         "query": original_query,
         "expanded_query": display_resolved_query,
