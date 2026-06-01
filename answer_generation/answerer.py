@@ -174,8 +174,22 @@ TIME_DRIVING_QUERY_PATTERN = re.compile(
     r")\b",
     flags=re.IGNORECASE,
 )
+TEMPORAL_APPLICABILITY_PATTERN = re.compile(
+    r"\b("
+    r"phạt\s*nguội|"
+    r"mức\s*cũ|mức\s*mới|quy\s*định\s*cũ|quy\s*định\s*mới|"
+    r"cuối\s*tháng|đầu\s*tháng|trước\s*ngày|sau\s*ngày|"
+    r"thời\s*điểm\s*vi\s*phạm|thời\s*điểm\s*xử\s*phạt|"
+    r"bị\s*xử\s*phạt\s*sau|vi\s*phạm\s*từ|vi\s*phạm\s*vào"
+    r")\b",
+    flags=re.IGNORECASE,
+)
 CURRENT_TIME_QUERY_PATTERN = re.compile(r"\b(hiện\s*tại|hiện\s*nay|bây\s*giờ|ngày\s*nay)\b", flags=re.IGNORECASE)
 YEAR_TIME_QUERY_PATTERN = re.compile(r"\b(?:năm|nam)\s*(20\d{2}|19\d{2})\b", flags=re.IGNORECASE)
+MONTH_YEAR_TIME_PATTERN = re.compile(
+    r"\b(?:cuối|cuoi|đầu|dau|giữa|giua)?\s*(?:tháng|thang)\s*(\d{1,2})\s*(?:năm|nam)\s*(20\d{2}|19\d{2})\b",
+    flags=re.IGNORECASE,
+)
 SLASH_DATE_PATTERN = re.compile(r"\b(\d{1,2})[/-](\d{1,2})[/-](20\d{2}|19\d{2})\b")
 
 
@@ -568,6 +582,122 @@ def _selector_matches(row: dict[str, str], selector: dict[str, str]) -> bool:
     return bool(target_article or target_clause or target_point)
 
 
+def _result_consequence_tags(result: dict[str, Any]) -> list[str]:
+    text = _result_body_match_text(result)
+    tags: list[str] = []
+    if "phat tien tu" in text or ("phat tien" in text and "dong" in text):
+        tags.append("phat_tien")
+    if "bi tru diem giay phep lai xe" in text or "tru diem giay phep lai xe" in text:
+        tags.append("tru_diem_gplx")
+    if "tuoc quyen su dung giay phep lai xe" in text:
+        tags.append("tuoc_gplx")
+    if "hinh thuc xu phat bo sung" in text:
+        tags.append("xu_phat_bo_sung")
+    return tags
+
+
+def _result_references_selector(result: dict[str, Any], selector: dict[str, str]) -> bool:
+    if not selector:
+        return False
+    text = _result_body_match_text(result, tail_depth=6)
+    article = selector.get("article")
+    clause = selector.get("clause")
+    point = selector.get("point")
+    if article and f"dieu {article}" not in text:
+        return False
+    if clause and f"khoan {clause}" not in text:
+        return False
+    if point:
+        aliases = _point_aliases(point)
+        if not any(f"diem {alias.replace('đ', 'd')}" in text for alias in aliases):
+            return False
+    return bool(article or clause or point)
+
+
+def _is_direct_penalty_anchor(result: dict[str, Any], profile: dict[str, Any]) -> bool:
+    selector = _extract_unit_selector(result)
+    if not selector.get("article") or not selector.get("clause"):
+        return False
+    text = _result_body_match_text(result)
+    notes = set(result.get("domain_rerank_notes") or [])
+    consequence_tags = set(_result_consequence_tags(result))
+    if "phat_tien" not in consequence_tags:
+        return False
+    if "tru_diem_gplx" in consequence_tags or "tuoc_gplx" in consequence_tags:
+        return False
+    if "missing_fine" in notes:
+        return False
+    if profile.get("traffic_light_signal") and "missing_traffic_light" in notes:
+        return False
+    if profile.get("vehicle_target") and "vehicle_article_mismatch" in notes:
+        return False
+    return "phat tien tu" in text or ("phat tien" in text and "dong" in text)
+
+
+def _anchor_selectors_for_consequences(
+    scored: list[tuple[float, dict[str, Any]]],
+    profile: dict[str, Any],
+    limit: int = 2,
+) -> list[dict[str, str]]:
+    anchors: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for _, result in scored:
+        if not _is_direct_penalty_anchor(result, profile):
+            continue
+        selector = _extract_unit_selector(result)
+        key = (
+            selector.get("article", ""),
+            selector.get("clause", ""),
+            selector.get("point", ""),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        anchors.append(selector)
+        if len(anchors) >= limit:
+            break
+    return anchors
+
+
+def _boost_related_consequence_results(
+    scored: list[tuple[float, dict[str, Any]]],
+    profile: dict[str, Any],
+) -> tuple[list[tuple[float, dict[str, Any]]], list[dict[str, str]], int]:
+    if not profile.get("administrative_penalty"):
+        return scored, [], 0
+
+    anchors = _anchor_selectors_for_consequences(scored, profile)
+    if not anchors:
+        return scored, [], 0
+
+    boosted_count = 0
+    updated: list[tuple[float, dict[str, Any]]] = []
+    for score, raw_result in scored:
+        result = dict(raw_result)
+        tags = set(_result_consequence_tags(result))
+        notes = list(result.get("domain_rerank_notes") or [])
+        bonus = 0.0
+        for selector in anchors:
+            if not _result_references_selector(result, selector):
+                continue
+            if "tru_diem_gplx" in tags:
+                bonus = max(bonus, 8.5)
+                if "point_deduction_selector_match" not in notes:
+                    notes.append("point_deduction_selector_match")
+            if "tuoc_gplx" in tags:
+                bonus = max(bonus, 7.0)
+                if "license_revocation_selector_match" not in notes:
+                    notes.append("license_revocation_selector_match")
+        if bonus > 0:
+            boosted_count += 1
+            score += bonus
+            result["domain_rerank_notes"] = notes
+            result["rerank_score"] = round(score, 6)
+        updated.append((score, result))
+    updated.sort(key=lambda item: item[0], reverse=True)
+    return updated, anchors, boosted_count
+
+
 def _effectivity_lines_for_result(result: dict[str, Any]) -> list[str]:
     metadata = load_effectivity_metadata()
     lines: list[str] = []
@@ -773,12 +903,15 @@ def apply_rule_based_query_rewrite(query: str) -> str:
         if "nong do con" not in normalized:
             rewritten_parts.append(alcohol_phrase)
         if "phat" in normalized or "xu phat" in normalized or "bao nhieu" in normalized:
-            rewritten_parts.append("mức phạt phạt tiền")
+            rewritten_parts.append("mức phạt tiền")
 
     if "vuot den do" in normalized:
-        rewritten_parts.append("không chấp hành hiệu lệnh của đèn tín hiệu giao thông")
+        if "nguoi di bo" in normalized:
+            rewritten_parts.append("người đi bộ không chấp hành hiệu lệnh hoặc chỉ dẫn của đèn tín hiệu")
+        else:
+            rewritten_parts.append("không chấp hành hiệu lệnh của đèn tín hiệu giao thông")
         if "phat" in normalized or "bao nhieu" in normalized:
-            rewritten_parts.append("mức phạt phạt tiền")
+            rewritten_parts.append("mức phạt tiền")
 
     if "bang lai" in normalized or "gplx" in normalized:
         rewritten_parts.append("giấy phép lái xe")
@@ -867,6 +1000,40 @@ def detect_temporal_scope(query: str) -> dict[str, Any] | None:
     return None
 
 
+def _query_temporal_window(query: str) -> dict[str, date] | None:
+    query = repair_mojibake_text(query or "")
+    starts: list[date] = []
+    ends: list[date] = []
+
+    for match in SLASH_DATE_PATTERN.finditer(query):
+        day, month, year = map(int, match.groups())
+        try:
+            point = date(year, month, day)
+        except ValueError:
+            continue
+        starts.append(point)
+        ends.append(point)
+
+    for match in MONTH_YEAR_TIME_PATTERN.finditer(query):
+        month = int(match.group(1))
+        year = int(match.group(2))
+        if month < 1 or month > 12:
+            continue
+        start = date(year, month, 1)
+        end = date(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
+        starts.append(start)
+        ends.append(end)
+
+    for match in YEAR_TIME_QUERY_PATTERN.finditer(query):
+        year = int(match.group(1))
+        starts.append(date(year, 1, 1))
+        ends.append(date(year + 1, 1, 1))
+
+    if not starts:
+        return None
+    return {"start": min(starts), "end": max(ends)}
+
+
 def _doc_active_for_scope(result: dict[str, Any], temporal_scope: dict[str, Any] | None) -> bool | None:
     if not temporal_scope:
         return None
@@ -908,6 +1075,33 @@ def _result_match_text(result: dict[str, Any]) -> str:
     )
 
 
+def _result_primary_text(result: dict[str, Any]) -> str:
+    text = repair_mojibake_text(str(result.get("text") or ""))
+    for marker in ("Nội dung:", "Noi dung:"):
+        if marker in text:
+            text = text.split(marker, 1)[1]
+            break
+    for marker in ("Tham chiếu đã giải:", "Resolved references:"):
+        if marker in text:
+            text = text.split(marker, 1)[0]
+    return text
+
+
+def _result_body_match_text(result: dict[str, Any], tail_depth: int = 2) -> str:
+    path = str(result.get("path_text") or "")
+    path_parts = [part.strip() for part in path.split(">") if part.strip()]
+    path_tail = " > ".join(path_parts[-tail_depth:])
+    return _normalize_for_match(
+        " ".join(
+            str(value or "")
+            for value in [
+                path_tail,
+                _result_primary_text(result),
+            ]
+        )
+    )
+
+
 def _has_time_driving_terms(text: str) -> bool:
     return any(
         term in text
@@ -927,7 +1121,29 @@ def _has_time_driving_terms(text: str) -> bool:
     )
 
 
+def _has_temporal_applicability_terms(text: str) -> bool:
+    return any(
+        term in text
+        for term in [
+            "quy dinh chuyen tiep",
+            "dieu khoan thi hanh",
+            "thoi hieu xu phat",
+            "hanh vi vi pham hanh chinh da ket thuc",
+            "hanh vi vi pham hanh chinh dang thuc hien",
+            "hieu luc thi hanh",
+            "co hieu luc thi hanh",
+            "ap dung",
+            "truoc ngay",
+            "sau ngay",
+            "truoc khi",
+            "sau khi",
+        ]
+    )
+
+
 def _vehicle_target_from_query(normalized: str) -> str | None:
+    if re.search(r"\bnguoi\s+di\s+bo\b", normalized):
+        return "pedestrian"
     if re.search(r"\bxe\s+may\s+chuyen\s+dung\b", normalized):
         return "special_machine"
     if re.search(r"\b(xe\s+may|mo\s+to|xe\s+mo\s+to|xe\s+gan\s+may)\b", normalized):
@@ -977,6 +1193,24 @@ def _query_profile(query: str) -> dict[str, Any]:
             "gplx bi tru",
         ]
     )
+    temporal_applicability = (
+        bool(TEMPORAL_APPLICABILITY_PATTERN.search(query))
+        or (
+            bool(YEAR_TIME_QUERY_PATTERN.search(query) or SLASH_DATE_PATTERN.search(query))
+            and any(
+                token in normalized
+                for token in [
+                    "muc cu",
+                    "muc moi",
+                    "quy dinh cu",
+                    "quy dinh moi",
+                    "phat nguoi",
+                    "bi xu phat sau",
+                    "ap dung",
+                ]
+            )
+        )
+    )
     return {
         "alcohol": bool(ALCOHOL_QUERY_PATTERN.search(query)) or any(token in normalized for token in ["say", "ruou", "bia", "nong do con"]),
         "penalty": penalty,
@@ -984,6 +1218,7 @@ def _query_profile(query: str) -> dict[str, Any]:
         "administrative_penalty": penalty and not criminal_intent,
         "license_point_deduction": license_point_deduction,
         "time_driving": time_driving,
+        "temporal_applicability": temporal_applicability,
         "traffic_light_signal": (
             "den tin hieu giao thong" in normalized
             or "den tin hieu dieu khien giao thong" in normalized
@@ -1000,14 +1235,34 @@ def _query_profile(query: str) -> dict[str, Any]:
 
 
 def _domain_relevance_score(result: dict[str, Any], profile: dict[str, Any]) -> tuple[float, list[str]]:
-    text = _result_match_text(result)
+    full_text = _result_match_text(result)
+    text = _result_body_match_text(result)
+    path_text = _normalize_for_match(result.get("path_text") or "")
     score = 0.0
     notes: list[str] = []
-    point_deduction_match = (
-        "tru diem giay phep lai xe" in text
-        or "bi tru diem giay phep lai xe" in text
-        or "bi tru diem" in text
-    )
+    consequence_tags = set(_result_consequence_tags(result))
+    point_deduction_match = "tru_diem_gplx" in consequence_tags
+
+    if profile.get("temporal_applicability"):
+        if _has_temporal_applicability_terms(full_text):
+            score += 7.0
+            notes.append("temporal_applicability_match")
+        else:
+            score -= 8.0
+            notes.append("missing_temporal_applicability")
+        if "dieu khoan chuyen tiep" in full_text or "quy dinh chuyen tiep" in full_text:
+            score += 4.0
+            notes.append("transition_clause_match")
+        if (
+            "tai thoi diem thuc hien hanh vi vi pham" in full_text
+            or "xay ra va ket thuc truoc ngay" in full_text
+            or "sau do moi bi phat hien" in full_text
+        ):
+            score += 4.0
+            notes.append("temporal_rule_statement_match")
+        if "phat tien tu" in text and not _has_temporal_applicability_terms(full_text):
+            score -= 6.0
+            notes.append("specific_penalty_not_principle")
 
     if profile["alcohol"]:
         if "nong do con" in text or "ruou bia" in text or "ruou" in text:
@@ -1048,13 +1303,15 @@ def _domain_relevance_score(result: dict[str, Any], profile: dict[str, Any]) -> 
             score -= 8.0
             notes.append("missing_time_driving")
 
-    if profile["alcohol"] and profile["penalty"] and "nghi dinh quy dinh xu phat vi pham hanh chinh" in text:
+    if profile["alcohol"] and profile["penalty"] and "nghi dinh quy dinh xu phat vi pham hanh chinh" in full_text:
         score += 2.0
         notes.append("admin_penalty_decree")
 
     if profile.get("traffic_light_signal"):
         if (
             "khong chap hanh hieu lenh cua den tin hieu giao thong" in text
+            or "khong chap hanh hieu lenh hoac chi dan cua den tin hieu" in text
+            or "den tin hieu" in text
             or "den tin hieu giao thong" in text
             or "den tin hieu dieu khien giao thong" in text
         ):
@@ -1071,8 +1328,9 @@ def _domain_relevance_score(result: dict[str, Any], profile: dict[str, Any]) -> 
             "motorcycle": "7",
             "special_machine": "8",
             "bicycle": "9",
+            "pedestrian": "10",
         }.get(vehicle_target)
-        article_match = re.search(r"dieu\s+(6|7|8|9)\b", text)
+        article_match = re.search(r"dieu\s+(6|7|8|9|10)\b", path_text)
         if target_article and article_match:
             if article_match.group(1) == target_article:
                 score += 5.0
@@ -1080,11 +1338,21 @@ def _domain_relevance_score(result: dict[str, Any], profile: dict[str, Any]) -> 
             else:
                 score -= 4.0
                 notes.append("vehicle_article_mismatch")
+        if vehicle_target == "pedestrian":
+            if "nguoi di bo" in full_text or "nguoi di bo" in path_text:
+                score += 3.0
+                notes.append("pedestrian_actor_match")
+            else:
+                score -= 4.0
+                notes.append("pedestrian_actor_mismatch")
 
     if profile["vehicle_unspecified"]:
-        article_match = re.search(r"dieu\s+(6|7|8|9)\b", text)
+        article_match = re.search(r"dieu\s+(6|7|8|9|10)\b", path_text)
         if article_match:
-            score += {"6": 0.4, "7": 0.3, "8": 0.2, "9": 0.1}[article_match.group(1)]
+            score += {"6": 0.4, "7": 0.3, "8": 0.2, "9": 0.1, "10": 0.1}[article_match.group(1)]
+        if profile.get("temporal_applicability") and article_match:
+            score -= 3.5
+            notes.append("specific_vehicle_penalty_demote")
 
     if profile["low_emission_stage"]:
         stage_path = _normalize_for_match(result.get("path_text") or "")
@@ -1135,7 +1403,10 @@ def postprocess_retrieval_for_query(
 
     profile = _query_profile(retrieval_query)
     temporal_scope = detect_temporal_scope(original_query)
-    if not temporal_scope and profile["administrative_penalty"]:
+    query_temporal_window = _query_temporal_window(original_query) if profile.get("temporal_applicability") else None
+    if profile.get("temporal_applicability"):
+        temporal_scope = None
+    elif not temporal_scope and profile["administrative_penalty"]:
         today = date.today()
         temporal_scope = {
             "kind": "point",
@@ -1152,6 +1423,17 @@ def postprocess_retrieval_for_query(
         active = _doc_active_for_scope(result, temporal_scope)
         domain_score, notes = _domain_relevance_score(result, profile)
         temporal_score = 0.0
+        if query_temporal_window:
+            metadata = load_effectivity_metadata()
+            doc_meta = _doc_effectivity(result, metadata)
+            start_date = _parse_iso_date((doc_meta or {}).get("effective_from"))
+            if start_date:
+                if start_date >= query_temporal_window["end"]:
+                    temporal_score -= 8.0
+                    notes.append("effective_after_query_window")
+                else:
+                    temporal_score += 2.0
+                    notes.append("effective_within_query_window")
         if active is True:
             temporal_score = 2.5
             active_count += 1
@@ -1186,6 +1468,14 @@ def postprocess_retrieval_for_query(
         scored, preferred_count = _prioritize_by_note_absence(scored, "missing_time_driving")
         priority_counts["missing_time_driving"] = preferred_count
 
+    if profile.get("temporal_applicability"):
+        scored, preferred_count = _prioritize_by_note_absence(scored, "missing_temporal_applicability")
+        priority_counts["missing_temporal_applicability"] = preferred_count
+        scored, preferred_count = _prioritize_by_note_absence(scored, "specific_penalty_not_principle")
+        priority_counts["specific_penalty_not_principle"] = preferred_count
+        scored, preferred_count = _prioritize_by_note_absence(scored, "effective_after_query_window")
+        priority_counts["effective_after_query_window"] = preferred_count
+
     if profile.get("license_point_deduction"):
         scored, preferred_count = _prioritize_by_note_absence(scored, "missing_point_deduction")
         priority_counts["missing_point_deduction"] = preferred_count
@@ -1193,6 +1483,8 @@ def postprocess_retrieval_for_query(
     if profile["administrative_penalty"]:
         scored, preferred_count = _prioritize_by_note_absence(scored, "criminal_context_penalty")
         priority_counts["criminal_context_penalty"] = preferred_count
+
+    scored, consequence_anchors, boosted_consequences = _boost_related_consequence_results(scored, profile)
 
     retrieval = dict(retrieval)
     retrieval["results"] = [result for _, result in scored[:top_k]]
@@ -1207,6 +1499,14 @@ def postprocess_retrieval_for_query(
         if temporal_scope
         else None
     )
+    retrieval["debug"]["query_temporal_window"] = (
+        {
+            "start": query_temporal_window["start"].isoformat(),
+            "end": query_temporal_window["end"].isoformat(),
+        }
+        if query_temporal_window
+        else None
+    )
     retrieval["debug"]["query_profile"] = profile
     retrieval["debug"]["postprocess"] = {
         "input_results": len(results),
@@ -1214,6 +1514,8 @@ def postprocess_retrieval_for_query(
         "active_results_before_filter": active_count,
         "priority_counts": priority_counts,
         "rule_based_retrieval_query": retrieval_query,
+        "consequence_anchor_selectors": consequence_anchors,
+        "boosted_consequence_results": boosted_consequences,
     }
     return retrieval
 
@@ -1228,6 +1530,38 @@ def needs_retrieval_postprocess(original_query: str, retrieval_query: str) -> bo
         or profile.get("time_driving")
         or profile.get("vehicle_target")
     )
+
+
+def _answer_focus_instructions(question: str) -> list[str]:
+    profile = _query_profile(question)
+    normalized = _normalize_for_match(question)
+    instructions: list[str] = []
+    if profile.get("temporal_applicability"):
+        instructions.append(
+            "Neu cau hoi dang hoi nguyen tac ap dung muc phat theo thoi diem xay ra vi pham va thoi diem xu phat, chi duoc ket luan 'muc cu' hoac 'muc moi' neu CONTEXT neu ro nguyen tac ap dung theo thoi diem."
+        )
+        instructions.append(
+            "Neu CONTEXT chi co cac dieu khoan muc phat cu the, thoi hieu xu phat, hieu luc van ban, hoac quy dinh lien quan nhung khong noi ro nguyen tac ap dung theo thoi diem, phai tra loi dung cau: \"Khong tim thay can cu du ro trong tai lieu duoc truy xuat.\""
+        )
+    if profile.get("administrative_penalty"):
+        instructions.append(
+            "Neu CONTEXT cho thay cung mot hanh vi va cung loai phuong tien co nhieu hau qua phap ly, phai tong hop day du theo thu tu: phat tien; tru diem giay phep lai xe; tuoc quyen su dung giay phep lai xe; hinh thuc xu phat bo sung khac neu co."
+        )
+        instructions.append(
+            "Khong duoc bo qua tru diem hoac tuoc GPLX chi vi cau hoi dung cum 'bi phat bao nhieu'."
+        )
+    if profile.get("license_point_deduction"):
+        instructions.append(
+            "Neu CONTEXT co quy dinh tru diem GPLX, phai neu ro so diem bi tru va can cu tuong ung."
+        )
+    if (
+        ("quang duong" in normalized or re.search(r"\bkm\b", normalized))
+        and ("thoi gian" in normalized or re.search(r"\bgio\b", normalized))
+    ):
+        instructions.append(
+            "Neu cau hoi dong thoi hoi quang duong va thoi gian, phai tra loi day du ca hai dai luong; khong duoc chi tra loi mot ve."
+        )
+    return instructions
 
 
 def format_context(
@@ -1251,11 +1585,14 @@ def format_context(
         title_line = f"Tên văn bản: {doc_title}\n" if doc_title else ""
         effectivity_lines = _effectivity_lines_for_result(result) if include_effectivity else []
         effectivity_text = "".join(f"{line}\n" for line in effectivity_lines)
+        consequence_tags = _result_consequence_tags(result)
+        consequence_line = f"Loai thong tin: {', '.join(consequence_tags)}\n" if consequence_tags else ""
         blocks.append(
             f"[{i}]\n"
             f"Số hiệu: {doc_number}\n"
             f"{title_line}"
             f"{effectivity_text}"
+            f"{consequence_line}"
             f"Đường dẫn: {path}\n"
             f"Nội dung: {text}"
         )
@@ -1284,6 +1621,11 @@ Hãy trả lời câu hỏi dựa trên các căn cứ trong CONTEXT.
     if answer_mode != "extractive_multi_agent":
         raise ValueError(f"Unsupported answer_mode: {answer_mode}")
 
+    focus_instructions = _answer_focus_instructions(question)
+    focus_text = ""
+    if focus_instructions:
+        focus_text = "\n".join(f"- {instruction}" for instruction in focus_instructions)
+
     user_prompt = f"""Câu hỏi:
 {question}
 
@@ -1299,10 +1641,174 @@ Yêu cầu:
 4. Không in phân tích nội bộ.
 5. Chỉ in đúng định dạng đã yêu cầu.
 """
+    if focus_text:
+        user_prompt += f"\n{focus_text}"
     return [
         {"role": "system", "content": EXTRACTIVE_MULTI_AGENT_SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
     ]
+
+
+def _format_result_citation(result: dict[str, Any]) -> str:
+    selector = _extract_unit_selector(result)
+    parts: list[str] = []
+    if selector.get("article"):
+        parts.append(f"Điều {selector['article']}")
+    if selector.get("clause"):
+        parts.append(f"Khoản {selector['clause']}")
+    if selector.get("point"):
+        point = selector["point"]
+        if point in {"d", "dd"}:
+            point = "đ"
+        parts.append(f"Điểm {point}")
+    doc = result.get("document_number") or result.get("document_id")
+    if doc:
+        doc_text = str(doc)
+        title_text = _normalize_for_match(result.get("document_title") or "")
+        if "nghi dinh" in title_text:
+            doc_text = f"Nghị định {doc_text}"
+        elif "thong tu" in title_text:
+            doc_text = f"Thông tư {doc_text}"
+        elif "luat" in title_text:
+            doc_text = f"Luật {doc_text}"
+        parts.append(doc_text)
+    return ", ".join(parts) if parts else str(doc or result.get("path_text") or "")
+
+
+def _extract_point_deduction_summary(result: dict[str, Any]) -> str | None:
+    text = _result_body_match_text(result, tail_depth=6)
+    match = re.search(r"bi tru diem giay phep lai xe\s+(\d+)\s+diem", text)
+    if not match:
+        return None
+    return f"Ngoài ra, người điều khiển xe thực hiện hành vi này bị trừ điểm giấy phép lái xe {match.group(1)} điểm."
+
+
+def _extract_license_revocation_summary(result: dict[str, Any]) -> str | None:
+    text = _result_body_match_text(result, tail_depth=6)
+    match = re.search(
+        r"bi tuoc quyen su dung giay phep lai xe tu\s+([0-9]+\s+thang)\s+den\s+([0-9]+\s+thang)",
+        text,
+    )
+    if not match:
+        return None
+    return (
+        "Ngoài ra, người điều khiển xe thực hiện hành vi này bị tước quyền sử dụng giấy phép lái xe "
+        f"từ {match.group(1)} đến {match.group(2)}."
+    )
+
+
+def _append_bullets(section_text: str, items: list[str], header: str) -> str:
+    section_text = (section_text or "").strip()
+    if not items:
+        return section_text or header
+
+    if section_text.startswith(header):
+        content = section_text[len(header):].strip()
+    else:
+        content = section_text
+
+    bullets: list[str] = []
+    if content:
+        lines = [line.strip() for line in content.splitlines() if line.strip()]
+        if lines and all(line.startswith("- ") for line in lines):
+            bullets.extend(lines)
+        else:
+            bullets.append(f"- {content.lstrip('- ').strip()}")
+
+    normalized_existing = {_normalize_for_match(line) for line in bullets}
+    for item in items:
+        bullet = f"- {item.strip()}"
+        if _normalize_for_match(bullet) not in normalized_existing:
+            bullets.append(bullet)
+            normalized_existing.add(_normalize_for_match(bullet))
+
+    return f"{header}\n" + "\n".join(bullets)
+
+
+def _answer_mentions_point_deduction(normalized_answer: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(tru\s+\d+\s+diem\s+giay\s+phep\s+lai\s+xe|tru\s+diem\s+giay\s+phep\s+lai\s+xe|"
+            r"bi\s+tru\s+diem\s+giay\s+phep\s+lai\s+xe\s+\d+\s+diem)\b",
+            normalized_answer,
+        )
+    )
+
+
+def _answer_mentions_license_revocation(normalized_answer: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(tuoc\s+quyen\s+su\s+dung\s+giay\s+phep\s+lai\s+xe|"
+            r"bi\s+tuoc\s+quyen\s+su\s+dung\s+giay\s+phep\s+lai\s+xe)\b",
+            normalized_answer,
+        )
+    )
+
+
+def _augment_answer_with_related_consequences(
+    answer: str,
+    retrieval: dict[str, Any] | None,
+    question: str,
+) -> str:
+    answer = answer or ""
+    retrieval_results = (retrieval or {}).get("results") or []
+    if not answer or not retrieval_results:
+        return answer
+
+    profile = _query_profile(question)
+    if not profile.get("administrative_penalty"):
+        return answer
+    if profile.get("temporal_applicability"):
+        return answer
+
+    scored = [
+        (float(result.get("rerank_score") or result.get("score") or 0.0), result)
+        for result in retrieval_results
+    ]
+    anchors = _anchor_selectors_for_consequences(scored, profile)
+    if not anchors:
+        return answer
+
+    normalized_answer = _normalize_for_match(answer)
+    extra_answer_items: list[str] = []
+    extra_citations: list[str] = []
+
+    for result in retrieval_results:
+        if not any(_result_references_selector(result, selector) for selector in anchors):
+            continue
+        tags = set(_result_consequence_tags(result))
+        if "tru_diem_gplx" in tags and not _answer_mentions_point_deduction(normalized_answer):
+            summary = _extract_point_deduction_summary(result)
+            if summary:
+                extra_answer_items.append(summary)
+                extra_citations.append(_format_result_citation(result))
+                normalized_answer += " tru diem giay phep lai xe "
+        if "tuoc_gplx" in tags and not _answer_mentions_license_revocation(normalized_answer):
+            summary = _extract_license_revocation_summary(result)
+            if summary:
+                extra_answer_items.append(summary)
+                extra_citations.append(_format_result_citation(result))
+                normalized_answer += " tuoc quyen su dung giay phep lai xe "
+
+    if not extra_answer_items:
+        return answer
+
+    citation_label = "Dựa vào:"
+    answer_part = answer.strip()
+    citation_part = ""
+    for label in ("Dựa vào:", "Dựa theo:"):
+        if label in answer:
+            answer_part, citation_part = answer.split(label, 1)
+            citation_label = label
+            answer_part = answer_part.strip()
+            citation_part = citation_part.strip()
+            break
+
+    answer_part = _append_bullets(answer_part, extra_answer_items, "Trả lời:")
+    if extra_citations:
+        citation_part = _append_bullets(citation_part, extra_citations, citation_label)
+        return f"{answer_part}\n{citation_part}".strip()
+    return answer_part.strip()
 
 
 def run_retriever(
@@ -1565,7 +2071,7 @@ def retrieve_passages_for_query(
         semantic_entity_min_score=semantic_entity_min_score,
         progress_callback=progress_callback,
     )
-    updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, retrieval)
+    updated_memory = update_memory_after_answer(memory, original_query, processing_query, retrieval)
     _emit_progress(progress_callback, "completed", route=route)
     return {
         "query": original_query,
@@ -2100,7 +2606,7 @@ def answer_one(
     direct_effectivity_answer = _direct_effectivity_answer(processing_query)
     if direct_effectivity_answer:
         retrieval_query = query_preprocessing.get("rewritten_query") or processing_query
-        updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, None, answer=direct_effectivity_answer)
+        updated_memory = update_memory_after_answer(memory, original_query, processing_query, None, answer=direct_effectivity_answer)
         _emit_progress(progress_callback, "effectivity_fast_path", answer_mode="structured_effectivity")
         _emit_progress(progress_callback, "completed", route=route)
         return {
@@ -2201,7 +2707,13 @@ def answer_one(
             )
         _emit_progress(progress_callback, "generation_done", answer_chars=len(answer or ""))
 
-    updated_memory = update_memory_after_answer(memory, original_query, retrieval_query, retrieval, answer=answer)
+    answer = _augment_answer_with_related_consequences(
+        answer=answer,
+        retrieval=retrieval,
+        question=prompt_query if context.strip() else (processing_query or original_query),
+    )
+
+    updated_memory = update_memory_after_answer(memory, original_query, processing_query, retrieval, answer=answer)
     _emit_progress(progress_callback, "completed", route=route)
     return {
         "query": original_query,

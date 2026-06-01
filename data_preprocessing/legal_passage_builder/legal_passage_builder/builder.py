@@ -1,5 +1,5 @@
-
 import json
+import re
 from .config import PassageBuilderConfig
 from .effectivity import EffectivityStore
 from .references import ReferenceStore, compact_ref
@@ -14,6 +14,13 @@ CONTAINER_TYPES = {
     "phan", "chuong", "muc", "tieu_muc", "dieu",
     "attachment_summary", "appendix_section_alpha", "appendix_section_roman",
     "appendix_table", "form_summary", "form_section", "form_table", "embedded_form_title",
+}
+GENERIC_TABLE_HEADERS = {
+    "so tt",
+    "stt",
+    "noi dung",
+    "don vi tinh",
+    "hang giay phep lai xe",
 }
 
 class PassageBuilder:
@@ -52,6 +59,7 @@ class PassageBuilder:
         outgoing, incoming = self.references.load_package(package_id)
         amendment_actions = self._load_amendment_actions(package_dir)
         units = list(read_jsonl(units_path))
+        units = self._augment_units_with_table_rows(package_dir, inv, units)
         child_count = self._infer_child_count(units)
         passages = []
         for unit in units:
@@ -107,6 +115,133 @@ class PassageBuilder:
                         count[pid] = count.get(pid, 0) + 1
                         break
         return count
+
+    def _augment_units_with_table_rows(self, package_dir, inv, units):
+        existing_ids = {normalize_unit_id(unit) for unit in units if normalize_unit_id(unit)}
+        table_container_by_path = {
+            collapse_ws(unit.get("path_text") or ""): unit
+            for unit in units
+            if collapse_ws(unit.get("path_text") or "").endswith("> Bảng 1")
+            or " > Bảng " in collapse_ws(unit.get("path_text") or "")
+        }
+        tables_path = package_dir / "all_tables.jsonl"
+        if not tables_path.exists():
+            return units
+        synthetic_units = []
+        for table in read_jsonl(tables_path):
+            table_id = str(table.get("table_id") or "").strip()
+            rows = table.get("normalized_rows") or []
+            if not table_id or not rows:
+                continue
+            header_rows = self._infer_table_header_rows(rows)
+            column_labels = self._build_table_column_labels(rows[:header_rows]) if header_rows else {}
+            table_path = collapse_ws(table.get("path_text") or "")
+            table_parent = table_container_by_path.get(table_path)
+            base_order = 0
+            if table_parent:
+                try:
+                    base_order = int(table_parent.get("order") or 0)
+                except (TypeError, ValueError):
+                    base_order = 0
+            for row_index, row in enumerate(rows[header_rows:], start=1):
+                row_id = f"{table_id}.row_{row_index:03d}"
+                if row_id in existing_ids:
+                    continue
+                content = self._format_table_row_content(row, column_labels)
+                if not content:
+                    continue
+                path_text = f"{table_path} > Dòng {row_index}"
+                synthetic_units.append(
+                    {
+                        "unit_id": row_id,
+                        "unit_type": "table_row",
+                        "document_id": table.get("document_id") or (inv.get("main_document") or {}).get("document_id"),
+                        "document_number": table.get("document_number") or (inv.get("main_document") or {}).get("document_number"),
+                        "document_title": table.get("document_title") or (inv.get("main_document") or {}).get("document_title"),
+                        "source_type": table.get("source_type") or "main_document",
+                        "attachment_id": table.get("attachment_id"),
+                        "attachment_type": table.get("attachment_type"),
+                        "parent_id": table_id,
+                        "path_text": path_text,
+                        "content": content,
+                        "order": (base_order * 1000) + row_index if base_order else row_index,
+                        "structured_fields": {
+                            "table_id": table_id,
+                            "row_index": row_index,
+                            "column_labels": column_labels,
+                            "cells": row,
+                        },
+                        "source_file": table.get("source_file"),
+                    }
+                )
+                existing_ids.add(row_id)
+        return units + synthetic_units
+
+    @staticmethod
+    def _infer_table_header_rows(rows):
+        header_rows = 0
+        for row in rows:
+            first = collapse_ws((row[0] if row else "") or "")
+            normalized_first = re.sub(r"\s+", " ", first).strip().lower()
+            if re.match(r"^\d+[.)]?$", normalized_first):
+                break
+            if re.match(r"^[ivxlcdm]+\.", normalized_first):
+                break
+            if normalized_first in {"trong đó", "trong do"}:
+                break
+            header_rows += 1
+        return header_rows
+
+    @staticmethod
+    def _normalize_header_label(value):
+        return re.sub(r"[^a-z0-9]+", " ", (value or "").lower()).strip()
+
+    def _build_table_column_labels(self, header_rows):
+        labels = {}
+        if not header_rows:
+            return labels
+        width = max(len(row) for row in header_rows)
+        for col_idx in range(width):
+            parts = []
+            seen = set()
+            for row in header_rows:
+                raw = collapse_ws(row[col_idx] if col_idx < len(row) else "")
+                key = self._normalize_header_label(raw)
+                if not raw or key in GENERIC_TABLE_HEADERS or key in seen:
+                    continue
+                seen.add(key)
+                parts.append(raw)
+            if parts:
+                labels[col_idx] = " - ".join(parts)
+        return labels
+
+    def _format_table_row_content(self, row, column_labels):
+        cells = [collapse_ws(cell) for cell in row or []]
+        if not any(cells):
+            return ""
+        ordinal = cells[0] if len(cells) > 0 else ""
+        label = cells[1] if len(cells) > 1 else ordinal
+        unit = cells[2] if len(cells) > 2 else ""
+        value_parts = []
+        for col_idx in range(3, len(cells)):
+            value = cells[col_idx]
+            if not value:
+                continue
+            column_label = column_labels.get(col_idx)
+            if column_label:
+                value_parts.append(f"{column_label}: {value}")
+            else:
+                value_parts.append(value)
+        prefix_parts = [part for part in [ordinal, label] if part and part != label]
+        main_label = label or ordinal
+        if unit:
+            main_label = f"{main_label} ({unit})"
+        if value_parts:
+            if prefix_parts:
+                return f"{' '.join(prefix_parts)}. {main_label}: {'; '.join(value_parts)}"
+            return f"{main_label}: {'; '.join(value_parts)}"
+        remaining = [cell for cell in cells if cell]
+        return " | ".join(remaining)
 
     def _passage_kind(self, unit, child_count):
         t = unit.get("unit_type") or unit.get("type") or ""

@@ -69,6 +69,7 @@ DOC_ID_RE = re.compile(
     r")\b",
     flags=re.IGNORECASE,
 )
+ENTITY_ID_PATTERN = re.compile(r"^ent_[0-9a-f]{8,}$", flags=re.IGNORECASE)
 
 RESOLVER_SYSTEM_PROMPT = """
 Bạn là Conversation Resolver kiêm Legal Query Rewriter cho hệ thống RAG pháp luật giao thông Việt Nam.
@@ -82,8 +83,11 @@ Bạn phải làm đồng thời:
 - Nếu CURRENT_QUESTION thay đổi điều kiện so với lượt trước, hãy thay điều kiện cũ bằng điều kiện mới.
   Ví dụ: ô tô -> xe máy; dưới 18 tuổi -> dưới 16 tuổi; Hà Nội -> TP.HCM.
 - Nếu CURRENT_QUESTION mở chủ đề mới, không dùng MEMORY cũ.
+- Nếu CURRENT_QUESTION là follow-up rất ngắn như "còn ô tô thì sao", "với xe đạp thì sao", "thế xe máy", thì mặc định phải kế thừa hành vi/vấn đề pháp lý ở lượt trước, trừ khi CURRENT_QUESTION tự nêu rõ một chủ đề pháp lý mới.
 - Bỏ phần đã được trả lời ở lượt trước, trừ khi cần giữ để hiểu câu hỏi hiện tại.
 - Chuẩn hóa ngôn ngữ đời thường thành ngôn ngữ pháp luật vừa đủ cho retrieval.
+- Nếu câu hỏi hỏi về việc áp dụng quy định theo thời gian, ví dụ vi phạm xảy ra trước một mốc nhưng bị xử phạt sau mốc đó, thì phải giữ đây là câu hỏi về nguyên tắc áp dụng theo thời điểm, không được tự đổi thành truy vấn mức phạt của một hành vi cụ thể.
+- Nếu câu hỏi hỏi về đào tạo lái xe thực hành ngoài đường, quãng đường, thời gian, số km, số giờ, thì phải rewrite về thuật ngữ đào tạo thực hành lái xe trên đường giao thông; không được trôi sang đăng kiểm, thực tập đăng kiểm viên hay biểu mẫu báo cáo nếu câu hỏi đang hỏi yêu cầu đào tạo.
 - Không trả lời câu hỏi pháp luật.
 - Không tự bịa Điều/Khoản/Điểm.
 - Không tự bịa mức phạt, thời hạn, ngày hiệu lực.
@@ -97,6 +101,13 @@ QUY TẮC RẤT QUAN TRỌNG VỀ MEMORY VĂN BẢN:
   "văn bản này", "văn bản đó", "nghị định này", "luật này", "thông tư này", "nghị quyết này", "nó".
 - Hoặc khi CURRENT_QUESTION hỏi trực tiếp về hiệu lực/còn hiệu lực/hết hiệu lực/bãi bỏ/thay thế/căn cứ/văn bản nào.
 - Nếu người dùng không tự nêu số văn bản trong CURRENT_QUESTION và câu hỏi không tham chiếu trực tiếp tới văn bản, retrieval_query không được chứa số văn bản.
+- Không được làm rộng một hành vi cụ thể thành cụm chung kiểu "vi phạm giao thông", "xử phạt giao thông", "quy định giao thông" nếu lượt trước đã có hành vi cụ thể.
+- Nếu CURRENT_QUESTION chỉ đổi phương tiện/đối tượng, standalone_question phải giữ nguyên hành vi pháp lý của lượt trước và chỉ thay đúng ràng buộc đó.
+- Không được mở rộng một phương tiện thành danh sách nhiều phương tiện tương tự, trừ khi CURRENT_QUESTION tự hỏi nhiều loại phương tiện. Ví dụ:
+  - "xe đạp" thì chỉ giữ "xe đạp"
+  - "ô tô" thì chỉ giữ "ô tô"
+  - "xe máy" thì chỉ giữ "xe máy" hoặc "xe mô tô" nếu CURRENT_QUESTION dùng đúng cách gọi đó
+- Với follow-up ngắn, chỉ chọn relation "new_topic" khi CURRENT_QUESTION thật sự nêu một chủ đề pháp lý mới, không phụ thuộc hành vi/vấn đề ở lượt trước.
 
 Các relation hợp lệ:
 - new_topic
@@ -164,6 +175,39 @@ MEMORY:
     {
         "role": "user",
         "content": """
+CURRENT_QUESTION: với xe đạp thì sao
+MEMORY:
+{
+  "last_user_question": "Còn xe máy thì sao?",
+  "last_standalone_question": "Người điều khiển xe máy không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị xử phạt như thế nào?",
+  "last_answer_summary": "Đã trả lời về mức xử phạt đối với xe máy không chấp hành hiệu lệnh của đèn tín hiệu giao thông.",
+  "last_intent": "penalty",
+  "focus_entities": ["xe máy", "không chấp hành hiệu lệnh của đèn tín hiệu giao thông"],
+  "focus_docs": ["168/2024/NĐ-CP"]
+}
+""".strip(),
+    },
+    {
+        "role": "assistant",
+        "content": json.dumps(
+            {
+                "relation": "replace_constraint",
+                "use_memory": True,
+                "reason": "Người dùng hỏi tiếp cùng hành vi nhưng đổi phương tiện từ xe máy sang xe đạp.",
+                "current_focus": "mức xử phạt đối với người điều khiển xe đạp không chấp hành hiệu lệnh của đèn tín hiệu giao thông",
+                "dropped_answered_content": ["mức phạt đối với xe máy đã được trả lời"],
+                "changed_constraints": {"vehicle": {"from": "xe máy", "to": "xe đạp"}},
+                "standalone_question": "Người điều khiển xe đạp không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị xử phạt như thế nào?",
+                "retrieval_query": "người điều khiển xe đạp không chấp hành hiệu lệnh của đèn tín hiệu giao thông bị xử phạt như thế nào",
+                "route": "traffic_law",
+                "confidence": 0.95,
+            },
+            ensure_ascii=False,
+        ),
+    },
+    {
+        "role": "user",
+        "content": """
 CURRENT_QUESTION: đối với người dưới 16 thì sao?
 MEMORY:
 {
@@ -188,6 +232,58 @@ MEMORY:
                 "changed_constraints": {"age": {"from": "dưới 18 tuổi", "to": "dưới 16 tuổi"}},
                 "standalone_question": "Người dưới 16 tuổi vi phạm giao thông có bị xử phạt không?",
                 "retrieval_query": "người dưới 16 tuổi vi phạm giao thông có bị xử phạt không",
+                "route": "traffic_law",
+                "confidence": 0.92,
+            },
+            ensure_ascii=False,
+        ),
+    },
+    {
+        "role": "user",
+        "content": """
+CURRENT_QUESTION: Nếu tôi vi phạm giao thông vào cuối tháng 12 năm 2024 nhưng đến tháng 2 năm 2025 mới bị phạt nguội thì áp dụng mức phạt cũ hay mức mới?
+MEMORY:
+{}
+""".strip(),
+    },
+    {
+        "role": "assistant",
+        "content": json.dumps(
+            {
+                "relation": "new_topic",
+                "use_memory": False,
+                "reason": "Câu hỏi mới về nguyên tắc áp dụng mức xử phạt theo thời điểm xảy ra vi phạm và thời điểm xử phạt.",
+                "current_focus": "áp dụng mức phạt cũ hay mức phạt mới khi hành vi vi phạm xảy ra trước thời điểm quy định mới có hiệu lực nhưng bị xử phạt sau thời điểm đó",
+                "dropped_answered_content": [],
+                "changed_constraints": {},
+                "standalone_question": "Nếu hành vi vi phạm giao thông xảy ra trước khi quy định xử phạt mới có hiệu lực nhưng việc xử phạt diễn ra sau thời điểm quy định mới có hiệu lực thì áp dụng mức phạt cũ hay mức phạt mới?",
+                "retrieval_query": "áp dụng mức phạt cũ hay mức phạt mới khi hành vi vi phạm giao thông xảy ra trước khi quy định mới có hiệu lực nhưng bị xử phạt sau thời điểm quy định mới có hiệu lực phạt nguội",
+                "route": "traffic_law",
+                "confidence": 0.93,
+            },
+            ensure_ascii=False,
+        ),
+    },
+    {
+        "role": "user",
+        "content": """
+CURRENT_QUESTION: học viên sẽ phải ôm vô lăng chạy thực tế ngoài đường giao thông (không tính sân tập) tổng cộng bao nhiêu km và trong mấy tiếng?
+MEMORY:
+{}
+""".strip(),
+    },
+    {
+        "role": "assistant",
+        "content": json.dumps(
+            {
+                "relation": "new_topic",
+                "use_memory": False,
+                "reason": "Câu hỏi mới về yêu cầu đào tạo lái xe thực hành trên đường giao thông.",
+                "current_focus": "thời gian và quãng đường đào tạo thực hành lái xe trên đường giao thông của học viên, không tính phần sân tập",
+                "dropped_answered_content": [],
+                "changed_constraints": {},
+                "standalone_question": "Thời gian và quãng đường đào tạo thực hành lái xe trên đường giao thông của học viên là bao nhiêu, không tính phần thực hành trên sân tập lái?",
+                "retrieval_query": "đào tạo lái xe thời gian thực hành trên đường giao thông quãng đường thực hành trên đường giao thông của học viên không tính sân tập là bao nhiêu km bao nhiêu giờ",
                 "route": "traffic_law",
                 "confidence": 0.92,
             },
@@ -313,6 +409,31 @@ def should_call_conversation_resolver(question: str, state: ConversationState | 
     )
 
 
+def _normalize_overlap_text(text: str) -> str:
+    text = _strip_accents(text or "").lower()
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _filtered_focus_entities(state: ConversationState) -> list[str]:
+    reference_text = " ".join(
+        part for part in [state.last_standalone_question or "", state.last_user_question or ""] if part
+    )
+    normalized_reference = _normalize_overlap_text(reference_text)
+    filtered: list[str] = []
+    for entity in state.focus_entities[:8]:
+        text = (entity.text or "").strip()
+        if not text:
+            continue
+        if ENTITY_ID_PATTERN.fullmatch(text):
+            continue
+        normalized_entity = _normalize_overlap_text(text)
+        if normalized_reference and normalized_entity and normalized_entity not in normalized_reference:
+            continue
+        filtered.append(text)
+    return filtered[:6]
+
+
 def render_memory_for_resolver(state: ConversationState | None) -> dict[str, Any]:
     if not state:
         return {}
@@ -324,7 +445,7 @@ def render_memory_for_resolver(state: ConversationState | None) -> dict[str, Any
         "last_standalone_question": state.last_standalone_question or "",
         "last_answer_summary": state.last_answer_summary or "",
         "last_intent": state.last_intent or "",
-        "focus_entities": [entity.text for entity in state.focus_entities[:8] if entity.text],
+        "focus_entities": _filtered_focus_entities(state),
         "focus_docs": [doc.doc_id for doc in state.focus_docs[:4] if doc.doc_id],
         "last_citations": list(state.last_citations or [])[:6],
         "recent_turns": list(state.recent_turns or [])[-3:],
