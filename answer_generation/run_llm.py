@@ -16,8 +16,6 @@ from answer_generation.answerer import (  # noqa: E402
     apply_rule_based_query_rewrite,
     build_prompt,
     format_context,
-    needs_retrieval_postprocess,
-    postprocess_retrieval_for_query,
     repair_mojibake_text,
 )
 
@@ -35,12 +33,12 @@ PIPELINES: dict[str, dict[str, Any]] = {
     },
     "bge_m3": {
         "index_dir": ROOT / "data/retrieval/index_bge_m3_hybrid",
-        "weights": {"dense": 0.25, "bm25": 0.25, "graph": 0.20, "reference": 0.30},
+        "weights": {"dense": 0.20, "bm25": 0.20, "graph": 0.15, "reference": 0.30},
         "use_reference_expansion": True,
     },
     "minilm": {
         "index_dir": ROOT / "data/retrieval/index_minilm_hybrid",
-        "weights": {"dense": 0.20, "bm25": 0.30, "graph": 0.20, "reference": 0.30},
+        "weights": {"dense": 0.15, "bm25": 0.25, "graph": 0.15, "reference": 0.30},
         "use_reference_expansion": True,
     },
 }
@@ -67,7 +65,7 @@ def main() -> None:
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--candidate-k", type=int, default=300)
     parser.add_argument("--semantic-entity-top-k", type=int, default=20)
-    parser.add_argument("--semantic-entity-min-score", type=float, default=0.45)
+    parser.add_argument("--semantic-entity-min-score", type=float, default=0.60)
     parser.add_argument("--max-context-passages", type=int, default=5)
     parser.add_argument("--max-chars-per-passage", type=int, default=1800)
     parser.add_argument("--max-new-tokens", type=int, default=512)
@@ -94,7 +92,7 @@ def main() -> None:
         from answer_generation.answerer import run_retriever
 
         retrieval_query = apply_rule_based_query_rewrite(args.query)
-        retrieval_top_k = max(args.top_k, 40) if needs_retrieval_postprocess(args.query, retrieval_query) else args.top_k
+        retrieval_top_k = args.top_k
         retrieval = run_retriever(
             retriever_script=args.retriever_script,
             index_dir=index_dir,
@@ -110,7 +108,17 @@ def main() -> None:
             reference_weight=weights["reference"],
             use_reference_expansion=bool(pipeline.get("use_reference_expansion", True)),
         )
-        retrieval = postprocess_retrieval_for_query(retrieval, args.query, retrieval_query, top_k=args.top_k)
+        retrieval = dict(retrieval)
+        retrieval.setdefault("debug", {})
+        retrieval["debug"]["postprocess"] = {
+            "disabled": True,
+            "reason": "score_only_experiment",
+            "rule_based_retrieval_query": retrieval_query,
+            "input_results": len(retrieval.get("results") or []),
+            "output_results": len(retrieval.get("results") or []),
+            "consequence_anchor_selectors": [],
+            "boosted_consequence_results": 0,
+        }
         context = format_context(
             retrieval.get("results", []),
             max_passages=args.max_context_passages,

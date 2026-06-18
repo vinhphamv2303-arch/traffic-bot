@@ -63,8 +63,7 @@ MODEL_PRESETS = {
 
 NER_MODE_LABELS = {
     "gazetteer": "Gazetteer",
-    "model": "GLiNER",
-    "hybrid": "Hybrid",
+    "gliner": "GLiNER",
 }
 
 
@@ -207,20 +206,37 @@ def inject_css() -> None:
         }
         
         /* User message bubble (Right aligned) */
+        div[data-testid="stChatMessage"]:has(.is-user) {
+            display: flex !important;
+            flex-direction: row-reverse !important;
+        }
         div[data-testid="stChatMessage"]:has(.is-user) > div:first-child {
             display: none !important;
         }
         div[data-testid="stChatMessage"]:has(.is-user) > div:last-child {
             background-color: var(--primary) !important; color: #ffffff !important;
             border-radius: 18px 18px 0 18px !important;
-            padding: 0.6rem 1rem !important; /* Tighter padding */
-            width: fit-content !important; max-width: 85% !important;
-            margin-left: auto !important; margin-right: 0 !important;
+            padding: 0.5rem 0.85rem 0.35rem 0.85rem !important; /* Thinner bottom padding */
+            width: fit-content !important;
+            max-width: 80% !important;
+            margin: 0 !important;
             flex-grow: 0 !important;
+            display: inline-block !important;
+            text-align: left !important;
         }
-        div[data-testid="stChatMessage"]:has(.is-user) > div:last-child p,
-        div[data-testid="stChatMessage"]:has(.is-user) > div:last-child div {
-            margin-top: 0 !important; margin-bottom: 0 !important;
+        div[data-testid="stChatMessage"]:has(.is-user) > div:last-child div:not(.is-user) {
+            display: contents !important;
+        }
+        div[data-testid="stChatMessage"]:has(.is-user) > div:last-child p {
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1.4 !important;
+            word-break: break-word !important;
+            display: inline !important;
+            color: #ffffff !important;
+        }
+        div[data-testid="stChatMessage"]:has(.is-user) .is-user {
+            display: none !important;
         }
         
         /* Bot message (Full width, transparent) */
@@ -479,6 +495,22 @@ def render_sidebar() -> dict[str, Any]:
             label_visibility="collapsed",
         )
 
+        if mode == "ner":
+            st.divider()
+            if st.button(t("new_chat_btn", lang), use_container_width=True):
+                reset_chat()
+                st.rerun()
+            return {
+                "mode": mode,
+                "pipeline_key": next(iter(PIPELINES)),
+                "top_k": 5,
+                "candidate_k": 300,
+                "max_context_passages": 5,
+                "max_chars_per_passage": 1800,
+                "enable_memory": False,
+                "enable_query_router": False,
+            }
+
         st.divider()
         # ── Retrieval ──
         _icon_search = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
@@ -551,6 +583,7 @@ def render_model_settings(mode: str) -> dict[str, Any]:
             backend = st.selectbox(
                 t("backend_label", lang),
                 options=["openai", "openrouter", "local"],
+                index=1,
                 format_func=lambda key: BACKEND_LABELS[key],
                 key="backend",
             )
@@ -607,17 +640,12 @@ def render_model_settings(mode: str) -> dict[str, Any]:
             }
 
         if mode == "ner":
-            ner_mode = st.selectbox(
-                t("ner_mode_label", lang),
-                options=["gazetteer", "model", "hybrid"],
-                format_func=lambda key: NER_MODE_LABELS[key],
-            )
             threshold = st.number_input(
                 t("threshold_label", lang),
-                min_value=0.0, max_value=1.0, value=0.70, step=0.05,
+                min_value=0.0, max_value=1.0, value=0.85, step=0.05,
             )
             device = st.selectbox(t("device_label", lang), options=["cpu", "cuda"], index=0)
-            return {"ner_mode": ner_mode, "threshold": float(threshold), "device": device}
+            return {"threshold": float(threshold), "device": device}
 
     return {}
 
@@ -722,42 +750,17 @@ def predict_gliner_entities(text: str, threshold: float, device: str) -> list[di
     return entities
 
 
-def merge_ner_entities(gazetteer_entities: list[dict[str, Any]], model_entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    merged: list[dict[str, Any]] = []
-    seen = set()
-    for entity in [*gazetteer_entities, *model_entities]:
-        key = (
-            entity.get("start"),
-            entity.get("end"),
-            entity.get("label"),
-            (entity.get("canonical") or entity.get("surface") or entity.get("text") or "").lower(),
-        )
-        if key in seen:
-            continue
-        seen.add(key)
-        merged.append(entity)
-    return sorted(merged, key=lambda e: (e.get("start") is None, e.get("start") or 0, e.get("end") or 0))
-
-
-def run_ner_test(text: str, mode: str, threshold: float, device: str) -> dict[str, Any]:
-    gazetteer_entities = predict_gazetteer_entities(text) if mode in {"gazetteer", "hybrid"} else []
-    model_entities = predict_gliner_entities(text, threshold, device) if mode in {"model", "hybrid"} else []
-
-    if mode == "gazetteer":
-        entities = gazetteer_entities
-    elif mode == "model":
-        entities = model_entities
-    elif mode == "hybrid":
-        entities = merge_ner_entities(gazetteer_entities, model_entities)
-    else:
-        raise ValueError(f"Unknown NER mode: {mode}")
-
+def run_ner_test(text: str, threshold: float, device: str) -> dict[str, Any]:
+    gazetteer_entities = predict_gazetteer_entities(text)
+    gliner_entities = predict_gliner_entities(text, threshold, device)
     return {
         "text": text,
-        "mode": mode,
-        "entities": entities,
+        "mode": "gazetteer_vs_gliner",
+        "threshold": threshold,
+        "device": device,
+        "entities": [*gazetteer_entities, *gliner_entities],
         "gazetteer_entities": gazetteer_entities,
-        "model_entities": model_entities,
+        "gliner_entities": gliner_entities,
     }
 
 
@@ -799,23 +802,7 @@ def render_retrieval_summary(result: dict[str, Any]) -> None:
                 st.json(components, expanded=False)
 
 
-def render_ner_result(result: dict[str, Any]) -> None:
-    lang = get_lang()
-    entities = result.get("entities") or []
-    st.markdown(
-        f"""
-        <div class="metric-row">
-          <span class="pill">{t("ner_mode_label", lang)}: {NER_MODE_LABELS.get(result.get('mode'), result.get('mode'))}</span>
-          <span class="pill">{t("entities_count", lang)}: {len(entities)}</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    if not entities:
-        st.info(t("no_entity", lang))
-        return
-
+def _ner_entity_rows(entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows = []
     for entity in entities:
         rows.append({
@@ -827,10 +814,45 @@ def render_ner_result(result: dict[str, Any]) -> None:
             "confidence": entity.get("confidence"),
             "source": entity.get("source"),
         })
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    return rows
+
+
+def render_ner_result(result: dict[str, Any]) -> None:
+    lang = get_lang()
+    gazetteer_entities = result.get("gazetteer_entities") or []
+    gliner_entities = result.get("gliner_entities") or result.get("model_entities") or []
+    entities = [*gazetteer_entities, *gliner_entities]
+    st.markdown(
+        f"""
+        <div class="metric-row">
+          <span class="pill">Gazetteer: {len(gazetteer_entities)}</span>
+          <span class="pill">GLiNER: {len(gliner_entities)}</span>
+          <span class="pill">Threshold: {result.get('threshold', 'N/A')}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     with st.expander(t("raw_ner_output", lang), expanded=False):
         st.json(result, expanded=False)
+
+    if not entities:
+        st.info(t("no_entity", lang))
+        return
+
+    left, right = st.columns(2)
+    with left:
+        st.markdown("**Gazetteer**")
+        if gazetteer_entities:
+            st.dataframe(_ner_entity_rows(gazetteer_entities), use_container_width=True, hide_index=True)
+        else:
+            st.info(t("no_entity", lang))
+    with right:
+        st.markdown("**GLiNER**")
+        if gliner_entities:
+            st.dataframe(_ner_entity_rows(gliner_entities), use_container_width=True, hide_index=True)
+        else:
+            st.info(t("no_entity", lang))
 
 
 def render_answer_result(result: dict[str, Any]) -> None:
@@ -880,12 +902,22 @@ def render_answer_result(result: dict[str, Any]) -> None:
             st.text(result.get("context_used") or "")
 
 
+def _markdown_preserve_newlines(text: str) -> str:
+    text = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    return text.replace("\n", "  \n")
+
+
+def render_chat_text(role: str, content: str) -> None:
+    flag = '<div class="is-user" style="display:none;">u</div>' if role == "user" else '<div class="is-bot" style="display:none;">b</div>'
+    st.markdown(flag, unsafe_allow_html=True)
+    st.markdown(_markdown_preserve_newlines(content))
+
+
 def render_chat_history() -> None:
     for item in st.session_state.chat_history:
         role = item.get("role", "assistant")
         with st.chat_message(role):
-            flag = '<div class="is-user" style="display:none;">u</div>' if role == "user" else '<div class="is-bot" style="display:none;">b</div>'
-            st.markdown(flag + (item.get("content") or ""), unsafe_allow_html=True)
+            render_chat_text(role, item.get("content") or "")
 
             payload = item.get("payload")
             kind = item.get("kind")
@@ -917,15 +949,15 @@ def _progress_step_definitions(mode: str, lang: str) -> list[tuple[str, str]]:
     if mode == "answer":
         return [
             ("resolver", t("step_analyzing", lang)),
-            ("route", "Xac dinh luong xu ly" if lang == "vi" else "Determine route"),
+            ("route", t("step_routing", lang)),
             ("retrieval", t("step_retrieving", lang)),
-            ("context", "Chuan bi ngu canh" if lang == "vi" else "Prepare context"),
+            ("context", t("step_context", lang)),
             ("generation", t("step_generating", lang)),
         ]
     if mode == "retriever":
         return [
             ("resolver", t("step_analyzing", lang)),
-            ("route", "Xac dinh luong xu ly" if lang == "vi" else "Determine route"),
+            ("route", t("step_routing", lang)),
             ("retrieval", t("step_retrieving", lang)),
         ]
     return []
@@ -933,9 +965,9 @@ def _progress_step_definitions(mode: str, lang: str) -> list[tuple[str, str]]:
 
 def _route_badge_text(route: str, lang: str) -> str:
     mapping = {
-        "traffic_law": "Tra cuu phap luat giao thong" if lang == "vi" else "Traffic law RAG",
-        "general_chat": "Hoi dap thong thuong" if lang == "vi" else "General chat",
-        "effectivity_index": "Tra cuu hieu luc" if lang == "vi" else "Effectivity lookup",
+        "traffic_law": t("route_traffic", lang),
+        "general_chat": t("route_general", lang),
+        "effectivity_index": t("route_effectivity", lang),
     }
     return mapping.get(route or "", route or "unknown")
 
@@ -1006,20 +1038,20 @@ def _create_progress_tracker(status, mode: str, lang: str, pipeline_name: str = 
         nonlocal current_note
 
         if stage == "loading_local_model":
-            current_note = f"Loading local model: {payload.get('model_name')}"
+            current_note = t("loading_model", lang, model_name=payload.get('model_name'))
             render()
             return
 
         if stage == "resolver_started":
-            status.update(label=t("step_analyzing", lang), state="running", expanded=True)
-            current_note = "Dang phan tich cau hoi..." if lang == "vi" else "Analyzing query..."
+            status.update(label=t('step_analyzing', lang), state="running")
+            current_note = t("step_analyzing", lang)
             set_step("resolver", "running", "")
             return
 
         if stage == "resolver_done":
             detail = payload.get("expanded_query") or payload.get("processing_query") or ""
             if payload.get("used_memory"):
-                detail = f"{_short_text(detail)} | memory"
+                detail = f"{_short_text(detail)} | {t('memory_badge', lang)}"
             else:
                 detail = _short_text(detail)
             set_step("resolver", "done", detail)
@@ -1027,11 +1059,7 @@ def _create_progress_tracker(status, mode: str, lang: str, pipeline_name: str = 
             return
 
         if stage == "route_decided":
-            status.update(
-                label="Xac dinh luong xu ly..." if lang == "vi" else "Determining route...",
-                state="running",
-                expanded=True,
-            )
+            status.update(label=t('step_routing', lang), state="running")
             route_text = _route_badge_text(str(payload.get("route") or ""), lang)
             reason = _short_text(payload.get("reason") or "", 120)
             detail = route_text if not reason else f"{route_text} | {reason}"
@@ -1039,19 +1067,15 @@ def _create_progress_tracker(status, mode: str, lang: str, pipeline_name: str = 
             return
 
         if stage == "effectivity_fast_path":
-            status.update(
-                label="Dang tra cuu hieu luc..." if lang == "vi" else "Checking structured effectivity...",
-                state="running",
-                expanded=True,
-            )
-            mark_skipped("retrieval", "Tra cuu truc tiep tu metadata" if lang == "vi" else "Used structured metadata")
-            mark_skipped("context", "Khong can truy xuat" if lang == "vi" else "No retrieval context needed")
-            mark_skipped("generation", "Khong can goi LLM" if lang == "vi" else "No LLM generation needed")
-            current_note = "Da dung fast-path hieu luc." if lang == "vi" else "Used structured effectivity fast-path."
+            status.update(label=t('step_effectivity', lang), state="running")
+            mark_skipped("retrieval", t("skip_retrieval_fast", lang))
+            mark_skipped("context", t("skip_context_fast", lang))
+            mark_skipped("generation", t("skip_generation_fast", lang))
+            current_note = t("note_fast_path", lang)
             return
 
         if stage == "retrieval_started":
-            status.update(label=t("step_retrieving", lang), state="running", expanded=True)
+            status.update(label=t('step_retrieving', lang), state="running")
             detail = payload.get("retrieval_query") or ""
             set_step("retrieval", "running", _short_text(detail))
             current_note = (
@@ -1079,15 +1103,11 @@ def _create_progress_tracker(status, mode: str, lang: str, pipeline_name: str = 
             return
 
         if stage == "retrieval_skipped":
-            mark_skipped("retrieval", "Bo qua retrieval" if lang == "vi" else "Retrieval skipped")
+            mark_skipped("retrieval", t("skip_retrieval", lang))
             return
 
         if stage == "context_ready":
-            status.update(
-                label="Dang chuan bi ngu canh..." if lang == "vi" else "Preparing context...",
-                state="running",
-                expanded=True,
-            )
+            status.update(label=t('step_context', lang), state="running")
             detail = (
                 f"{payload.get('context_passages', 0)} passages | "
                 f"{payload.get('context_chars', 0)} chars"
@@ -1096,14 +1116,14 @@ def _create_progress_tracker(status, mode: str, lang: str, pipeline_name: str = 
             return
 
         if stage == "context_skipped":
-            mark_skipped("context", "Khong co ngu canh du ro" if lang == "vi" else "Context unavailable")
+            mark_skipped("context", t("skip_context", lang))
             return
 
         if stage == "generation_started":
-            status.update(label=t("step_generating", lang), state="running", expanded=True)
+            status.update(label=t('step_generating', lang), state="running")
             detail = payload.get("answer_mode") or payload.get("model_name") or ""
             set_step("generation", "running", _short_text(detail))
-            current_note = "Dang doi mo hinh phan hoi..." if lang == "vi" else "Waiting for model response..."
+            current_note = t("step_generating", lang)
             return
 
         if stage == "generation_done":
@@ -1112,13 +1132,13 @@ def _create_progress_tracker(status, mode: str, lang: str, pipeline_name: str = 
             return
 
         if stage == "generation_skipped":
-            mark_skipped("generation", "Khong goi LLM do thieu ngu canh" if lang == "vi" else "Skipped due to missing context")
+            mark_skipped("generation", t("skip_generation", lang))
             return
 
         if stage == "completed":
             current_note = ""
             render()
-            status.update(label=t("step_done", lang), state="complete", expanded=False)
+            status.update(label=f"{t('reasoning_process', lang)}: {t('step_done', lang)}", state="complete", expanded=False)
 
     def fail(exc: Exception) -> None:
         nonlocal current_note
@@ -1127,7 +1147,7 @@ def _create_progress_tracker(status, mode: str, lang: str, pipeline_name: str = 
             set_step(key, "error", str(exc))
         current_note = str(exc)
         render()
-        status.update(label=f"{t('error_prefix', lang)}", state="error", expanded=True)
+        status.update(label=f"{t('reasoning_process', lang)} - {t('error_prefix', lang)}", state="error", expanded=True)
 
     render()
     return callback, fail
@@ -1141,14 +1161,14 @@ def handle_prompt(prompt: str, sidebar_settings: dict[str, Any], model_settings:
     # ── 1. Show user message immediately ──
     st.session_state.chat_history.append({"role": "user", "content": prompt, "kind": mode})
     with st.chat_message("user"):
-        st.markdown(f'<div class="is-user" style="display:none;">u</div>{prompt}', unsafe_allow_html=True)
+        render_chat_text("user", prompt)
 
     # ── 2. Process with visible status + stream answer ──
     with st.chat_message("assistant"):
         st.markdown('<div class="is-bot" style="display:none;">b</div>', unsafe_allow_html=True)
         try:
             if mode == "answer":
-                with st.status(t("step_analyzing", lang), expanded=True) as status:
+                with st.status(t("step_analyzing", lang), expanded=False) as status:
                     progress_callback, fail_progress = _create_progress_tracker(
                         status=status,
                         mode="answer",
@@ -1184,7 +1204,7 @@ def handle_prompt(prompt: str, sidebar_settings: dict[str, Any], model_settings:
                 st.rerun()
 
             elif mode == "retriever":
-                with st.status(t("step_retrieving", lang), expanded=True) as status:
+                with st.status(t("step_retrieving", lang), expanded=False) as status:
                     progress_callback, fail_progress = _create_progress_tracker(
                         status=status,
                         mode="retriever",
@@ -1216,17 +1236,17 @@ def handle_prompt(prompt: str, sidebar_settings: dict[str, Any], model_settings:
                 st.rerun()
 
             elif mode == "ner":
-                with st.status(t("step_ner_processing", lang), expanded=True) as status:
+                with st.status(t("step_ner_processing", lang), expanded=False) as status:
                     result = run_ner_test(
                         text=prompt,
-                        mode=model_settings["ner_mode"],
                         threshold=model_settings["threshold"],
                         device=model_settings["device"],
                     )
                     status.update(label=f"{t('step_done', lang)}", state="complete", expanded=False)
 
-                count = len(result.get("entities") or [])
-                assistant_content = t("entity_count", lang, n=str(count))
+                gazetteer_count = len(result.get("gazetteer_entities") or [])
+                gliner_count = len(result.get("gliner_entities") or [])
+                assistant_content = f"Gazetteer: **{gazetteer_count}** | GLiNER: **{gliner_count}**"
                 st.markdown(assistant_content)
                 st.session_state.chat_history.append({"role": "assistant", "content": assistant_content, "kind": "ner", "payload": result})
                 st.rerun()

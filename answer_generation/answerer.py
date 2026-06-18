@@ -25,11 +25,12 @@ from answer_generation.conversation_memory import (
 
 ROOT = Path(__file__).resolve().parents[1]
 EFFECTIVITY_ROOT = ROOT / "data" / "preprocessed" / "effectivity"
+QUERY_GLINER_MODEL_DIR = ROOT / "ner_finetuning" / "data" / "models" / "gliner_traffic_ner" / "final_model"
 
 ProgressCallback = Callable[[str, dict[str, Any]], None]
 
 INSUFFICIENT_CONTEXT_ANSWER = "Không tìm thấy căn cứ đủ rõ trong tài liệu được truy xuất."
-PROMPT_VERSION = "extractive_multi_agent_v2"
+PROMPT_VERSION = "extractive_multi_agent_v4_grounded_consequences"
 
 DIRECT_SYSTEM_PROMPT = f"""Bạn là trợ lý pháp lý chuyên về giao thông đường bộ Việt Nam.
 
@@ -40,16 +41,23 @@ Quy tắc bắt buộc:
 2. Không tự suy diễn mức phạt, thời hạn, điều kiện hoặc căn cứ nếu CONTEXT không nêu rõ.
 3. Nếu CONTEXT không có căn cứ đủ rõ, trả lời đúng câu: "{INSUFFICIENT_CONTEXT_ANSWER}"
 4. Ưu tiên căn cứ chứa nội dung trả lời trực tiếp.
-5. Nếu một passage chỉ dẫn chiếu kiểu "theo quy định tại..." mà không chứa nội dung trả lời, không dùng passage đó làm căn cứ chính nếu CONTEXT có passage đích trực tiếp.
-6. Với câu hỏi về số liệu, mức phạt, thời hạn, tối đa/tối thiểu, phải giữ đúng con số và đơn vị trong CONTEXT.
-7. Nếu câu hỏi có nhiều ý, trả lời đủ từng ý.
-8. Không trích dẫn căn cứ không được dùng để trả lời.
-9. Nếu câu hỏi hỏi về hiệu lực, phải dùng các dòng "Hiệu lực văn bản", "Hiệu lực riêng" hoặc "Hiệu lực riêng chưa xác định" trong CONTEXT. Không tự suy diễn ngày hiệu lực nếu metadata không có.
-10. Nếu câu hỏi hỏi "còn hiệu lực không" hoặc "hiện nay có hiệu lực không", phải dùng dòng "Tình trạng hiệu lực văn bản theo ngày hiện tại" để trả lời trực tiếp có/không, rồi nêu ngày bắt đầu/hết hiệu lực nếu có.
+5. Trước khi chọn căn cứ, phải đối chiếu passage với đúng đối tượng/phương tiện và hành vi trong câu hỏi. Nếu passage có mức phạt nhưng khác hành vi hoặc khác phương tiện thì bỏ qua passage đó.
+6. Với câu hỏi "vượt đèn đỏ", chỉ coi là khớp với cụm "không chấp hành hiệu lệnh của đèn tín hiệu giao thông". Không được dùng các căn cứ khác như "không chấp hành yêu cầu kiểm tra, kiểm soát", "không chấp hành hiệu lệnh, hướng dẫn của người điều khiển giao thông" hoặc "biển báo hiệu, vạch kẻ đường" để trả lời câu hỏi vượt đèn đỏ.
+7. Nếu câu hỏi nêu ô tô, xe máy, xe máy chuyên dùng, xe đạp hoặc người đi bộ, chỉ dùng căn cứ có đúng nhóm đối tượng đó trong đường dẫn hoặc nội dung, trừ khi câu hỏi yêu cầu so sánh nhiều loại phương tiện.
+8. Không dùng căn cứ có điều kiện bổ sung như "mà gây tai nạn giao thông", "không chấp hành yêu cầu kiểm tra..." nếu câu hỏi không nêu điều kiện đó.
+9. Nếu một passage chỉ dẫn chiếu kiểu "theo quy định tại..." mà không chứa nội dung trả lời, không dùng passage đó làm căn cứ chính nếu CONTEXT có passage đích trực tiếp.
+10. Với câu hỏi về số liệu, mức phạt, thời hạn, tối đa/tối thiểu, phải giữ đúng con số và đơn vị trong CONTEXT.
+11. Nếu câu hỏi có nhiều ý, trả lời đủ từng ý.
+12. Không trích dẫn căn cứ không được dùng để trả lời.
+13. Không chép nguyên các dòng metadata như "Đường dẫn:", "Nội dung:", "Hiệu lực văn bản:", "Tình trạng hiệu lực văn bản..." vào câu trả lời.
+14. Mỗi thông tin pháp lý trong câu trả lời phải có citation đến đúng passage đã dùng, theo dạng [1], [2]... đúng với số passage trong CONTEXT.
+15. Nếu một ý trả lời dùng nhiều passage, phải đặt đủ citation ngay sau ý đó, ví dụ [2][5]. Không được dùng thông tin từ passage nào rồi bỏ passage đó khỏi citation.
+16. Phần "Dựa theo" phải ghi đủ từng passage đã được citation ở phần trả lời. Không được gộp nhiều chế tài vào một căn cứ nếu các chế tài nằm ở các điều/khoản/điểm khác nhau.
 
 Định dạng đầu ra:
-Trả lời: <câu trả lời ngắn gọn, trực tiếp>
-Dựa theo: <điều/khoản/điểm, văn bản hoặc đường dẫn pháp lý liên quan>
+Trả lời: <câu trả lời ngắn gọn, trực tiếp, có citation [n] sau từng ý>
+Dựa theo:
+- [n] <điều/khoản/điểm và số hiệu văn bản liên quan>
 """
 
 EXTRACTIVE_MULTI_AGENT_SYSTEM_PROMPT = f"""Bạn là hệ thống trả lời pháp lý chuyên về giao thông đường bộ Việt Nam.
@@ -59,10 +67,18 @@ Bạn phải vận hành như 3 agent nội bộ, nhưng không được in quá
 Agent 1 - Query Decomposer:
 - Tách câu hỏi thành từng ý cần trả lời.
 - Nếu câu hỏi có "và", "đồng thời", "nếu... thì...", "mức phạt", "trừ điểm", "tước giấy phép", hoặc hỏi theo từng loại phương tiện, phải xem là có nhiều ý.
+- Với mỗi ý, xác định rõ đối tượng/phương tiện và hành vi chính người dùng hỏi. Ví dụ "lái ô tô vượt đèn đỏ" có đối tượng là người điều khiển xe ô tô và hành vi là không chấp hành hiệu lệnh của đèn tín hiệu giao thông.
 
 Agent 2 - Evidence Extractor:
 - Chỉ dùng CONTEXT.
+- Phải đọc toàn bộ các passage trong CONTEXT trước khi kết luận; không được dừng ở passage đầu tiên có vẻ đúng nếu các passage sau có chế tài liên quan như trừ điểm, tước giấy phép hoặc hiệu lực khác.
 - Tìm cụm chứa đáp án trực tiếp cho từng ý.
+- Ghi nhớ số passage dạng [1], [2]... của mọi passage được dùng để rút ra câu trả lời. Nếu dùng cả passage gốc và passage sửa đổi/bổ sung thì phải giữ cả hai số passage.
+- Nếu passage có mục "Tham chiếu liên quan đến nội dung trên", dùng mục này để hiểu các cụm như "điểm b khoản 9 Điều này" đang trỏ tới hành vi nào.
+- Chỉ chọn passage khớp đồng thời với đối tượng/phương tiện và hành vi chính. Nếu passage có mức phạt nhưng khác hành vi hoặc khác phương tiện thì bỏ qua passage đó, kể cả khi passage đứng trước trong CONTEXT.
+- Với câu hỏi "vượt đèn đỏ", chỉ coi là khớp với cụm "không chấp hành hiệu lệnh của đèn tín hiệu giao thông". Không dùng các passage về "không chấp hành yêu cầu kiểm tra, kiểm soát", "không chấp hành hiệu lệnh, hướng dẫn của người điều khiển giao thông" hoặc "biển báo hiệu, vạch kẻ đường".
+- Nếu câu hỏi nêu ô tô, xe máy, xe máy chuyên dùng, xe đạp hoặc người đi bộ, chỉ dùng căn cứ có đúng nhóm đối tượng đó trong đường dẫn hoặc nội dung, trừ khi câu hỏi yêu cầu so sánh nhiều loại phương tiện.
+- Không dùng căn cứ có điều kiện bổ sung như "mà gây tai nạn giao thông", "không chấp hành yêu cầu kiểm tra..." nếu câu hỏi không nêu điều kiện đó.
 - Ưu tiên passage có nội dung trực tiếp, không ưu tiên passage chỉ nói "theo quy định tại..." nếu passage đích có nội dung.
 - Với số liệu, mức phạt, thời hạn, điều kiện, hình thức xử lý, phải giữ đầy đủ từ giới hạn và đơn vị như "không quá", "tối đa", "tối thiểu", "ít nhất", "từ ... đến ...", "trừ ... điểm", "tước ... từ ... đến ...".
 - Không rút gọn "không quá 04 giờ" thành "04 giờ".
@@ -71,23 +87,32 @@ Agent 2 - Evidence Extractor:
 Agent 3 - Answer Composer:
 - Viết câu trả lời ngắn, trực tiếp, nhưng phải chứa nguyên văn các cụm đáp án quan trọng tìm được trong CONTEXT.
 - Nếu câu hỏi nhiều ý, trả lời bằng các bullet, mỗi bullet một ý.
+- Sau mỗi ý/mệnh đề có thông tin pháp lý, phải đặt citation bằng đúng số passage đã dùng, ví dụ [2] hoặc [2][5]. Citation đặt ngay ở cuối ý đó, không chỉ đặt ở phần "Dựa theo".
 - Nếu chỉ thiếu căn cứ cho một ý, ghi rõ ý đó không tìm thấy căn cứ; không phủ định toàn bộ câu hỏi nếu các ý khác có căn cứ.
 - Không dùng kiến thức ngoài CONTEXT.
 - Không trích dẫn căn cứ không được dùng.
-- Nếu câu hỏi hỏi về hiệu lực, phải ưu tiên các dòng "Hiệu lực văn bản", "Hiệu lực riêng" hoặc "Hiệu lực riêng chưa xác định" trong CONTEXT.
-- Nếu câu hỏi hỏi "còn hiệu lực không" hoặc "hiện nay có hiệu lực không", phải dùng dòng "Tình trạng hiệu lực văn bản theo ngày hiện tại" để trả lời trực tiếp có/không.
-- Nếu một điều/khoản/điểm có hiệu lực riêng khác hiệu lực chung của văn bản, phải nêu rõ hiệu lực riêng đó.
+- Không tự viết mục hiệu lực, trừ khi người dùng trực tiếp hỏi về hiệu lực.
+- Không chép nguyên các dòng metadata như "Đường dẫn:", "Nội dung:", "Hiệu lực văn bản:", "Tình trạng hiệu lực văn bản..." vào câu trả lời.
+- Phần "Dựa theo" phải liệt kê đầy đủ mọi passage đã được citation trong câu trả lời, ưu tiên dạng "[n] Điều X, Khoản Y, Điểm Z, <số hiệu văn bản>".
+- Mỗi chế tài trong câu trả lời phải có căn cứ tương ứng trong "Dựa theo". Ví dụ nếu câu trả lời có "phạt tiền ..." lấy từ [1] và "trừ 04 điểm giấy phép lái xe" lấy từ [2], phần trả lời phải có cả [1] và [2], phần "Dựa theo" phải có hai dòng riêng cho [1] và [2].
+- Citation phải khớp với chính mệnh đề đứng trước nó. Nếu mệnh đề nói "phạt tiền" thì chỉ citation passage chứa mức phạt tiền đó. Nếu mệnh đề nói "trừ điểm" thì chỉ citation passage chứa quy định trừ điểm đó. Không được citation passage trừ điểm cho mệnh đề phạt tiền, và không được citation passage phạt tiền cho mệnh đề trừ điểm.
+- Không được citation passage chỉ vì passage đó cùng văn bản, cùng điều, cùng chương, cùng hành vi, hoặc có tham chiếu liên quan. Passage được citation phải trực tiếp hỗ trợ đúng mệnh đề đang viết.
+- Nếu một passage trong CONTEXT có nội dung gần giống nhưng khác hành vi, khác đối tượng, hoặc có điều kiện bổ sung không được hỏi, phải bỏ qua hoàn toàn và không đưa vào "Dựa theo".
+- Nếu một passage về trừ điểm/tước giấy phép nói "hành vi quy định tại điểm ... khoản ... Điều này", hãy dùng mục "Tham chiếu liên quan đến nội dung trên" để xác định hành vi đó có đúng với câu hỏi hay không; nếu đúng và bạn nêu chế tài đó trong câu trả lời thì phải dẫn chính passage trừ điểm/tước giấy phép.
+- Không được nêu "trừ điểm giấy phép lái xe", "tước quyền sử dụng giấy phép lái xe" hoặc hình thức xử phạt bổ sung nếu không có passage riêng trong CONTEXT chứa chính chế tài đó. Không được citation passage phạt tiền để chứng minh cho chế tài trừ điểm/tước giấy phép.
+- Nếu một passage sửa đổi/bổ sung làm thay đổi điều kiện, ngoại lệ, thời điểm hoặc phạm vi áp dụng của passage khác, và bạn dùng thông tin sửa đổi/bổ sung đó để trả lời, phải citation cả passage sửa đổi/bổ sung. Không được chỉ citation văn bản gốc.
+- Trước khi in câu trả lời cuối cùng, tự kiểm tra nội bộ: mọi mức phạt, điểm GPLX, tước GPLX, điều kiện, ngoại lệ, thời hạn, mốc thời gian, phạm vi áp dụng và nội dung sửa đổi/bổ sung đã nêu trong câu trả lời đều phải có citation tương ứng.
 
 Nếu CONTEXT không chứa bất kỳ căn cứ đủ rõ nào để trả lời, trả lời đúng câu:
 "{INSUFFICIENT_CONTEXT_ANSWER}"
 
 Định dạng đầu ra bắt buộc:
 Trả lời:
-- <ý 1, chứa nguyên văn cụm đáp án trực tiếp>
-- <ý 2 nếu có>
+- <ý 1, chứa nguyên văn cụm đáp án trực tiếp> [n]
+- <ý 2 nếu có> [m]
 Dựa theo:
-- <điều/khoản/điểm, văn bản hoặc đường dẫn pháp lý liên quan>
-- <căn cứ tiếp theo nếu có>
+- [n] <điều/khoản/điểm và số hiệu văn bản liên quan>
+- [m] <căn cứ tiếp theo nếu có>
 """
 
 QUERY_ROUTER_SYSTEM_PROMPT = """Bạn là bộ tiền xử lý truy vấn cho hệ thống RAG pháp luật giao thông đường bộ Việt Nam.
@@ -876,6 +901,12 @@ def apply_rule_based_query_rewrite(query: str) -> str:
     rewritten_parts = [query]
     normalized = _normalize_for_match(query)
 
+    if ("xe may" in normalized or "moto" in normalized or "mo to" in normalized) and "xe may chuyen dung" not in normalized:
+        rewritten_parts.append("xe m\u00f4 t\u00f4 xe g\u1eafn m\u00e1y ng\u01b0\u1eddi \u0111i\u1ec1u khi\u1ec3n xe m\u00f4 t\u00f4 xe g\u1eafn m\u00e1y")
+
+    if "o to" in normalized or "oto" in normalized:
+        rewritten_parts.append("xe \u00f4 t\u00f4 ng\u01b0\u1eddi \u0111i\u1ec1u khi\u1ec3n xe \u00f4 t\u00f4")
+
     license_plate_pattern = globals().get("LICENSE_PLATE_QUERY_PATTERN")
     if (
         (license_plate_pattern is not None and license_plate_pattern.search(query))
@@ -1070,13 +1101,21 @@ def _result_match_text(result: dict[str, Any]) -> str:
                 result.get("document_title"),
                 result.get("path_text"),
                 result.get("text"),
+                result.get("passage_text"),
+                result.get("index_text"),
             ]
         )
     )
 
 
+def _result_raw_text(result: dict[str, Any]) -> str:
+    return repair_mojibake_text(
+        str(result.get("text") or result.get("passage_text") or result.get("index_text") or "")
+    )
+
+
 def _result_primary_text(result: dict[str, Any]) -> str:
-    text = repair_mojibake_text(str(result.get("text") or ""))
+    text = _result_raw_text(result)
     for marker in ("Nội dung:", "Noi dung:"):
         if marker in text:
             text = text.split(marker, 1)[1]
@@ -1276,6 +1315,9 @@ def _domain_relevance_score(result: dict[str, Any], profile: dict[str, Any]) -> 
         if "phat tien tu" in text or ("phat tien" in text and "dong" in text):
             score += 3.0
             notes.append("fine_range_match")
+        elif consequence_tags & {"tru_diem_gplx", "tuoc_gplx", "xu_phat_bo_sung"}:
+            score += 0.5
+            notes.append("consequence_without_fine")
         else:
             score -= 4.0
             notes.append("missing_fine")
@@ -1311,12 +1353,11 @@ def _domain_relevance_score(result: dict[str, Any], profile: dict[str, Any]) -> 
         if (
             "khong chap hanh hieu lenh cua den tin hieu giao thong" in text
             or "khong chap hanh hieu lenh hoac chi dan cua den tin hieu" in text
-            or "den tin hieu" in text
-            or "den tin hieu giao thong" in text
-            or "den tin hieu dieu khien giao thong" in text
         ):
             score += 4.0
             notes.append("traffic_light_match")
+        elif consequence_tags & {"tru_diem_gplx", "tuoc_gplx", "xu_phat_bo_sung"}:
+            notes.append("consequence_needs_reference_match")
         else:
             score -= 2.0
             notes.append("missing_traffic_light")
@@ -1330,12 +1371,12 @@ def _domain_relevance_score(result: dict[str, Any], profile: dict[str, Any]) -> 
             "bicycle": "9",
             "pedestrian": "10",
         }.get(vehicle_target)
-        article_match = re.search(r"dieu\s+(6|7|8|9|10)\b", path_text)
+        article_match = re.search(r"dieu\s+(\d+)\b", path_text)
         if target_article and article_match:
             if article_match.group(1) == target_article:
                 score += 5.0
                 notes.append("vehicle_article_match")
-            else:
+            elif profile.get("traffic_light_signal"):
                 score -= 4.0
                 notes.append("vehicle_article_mismatch")
         if vehicle_target == "pedestrian":
@@ -1484,7 +1525,14 @@ def postprocess_retrieval_for_query(
         scored, preferred_count = _prioritize_by_note_absence(scored, "criminal_context_penalty")
         priority_counts["criminal_context_penalty"] = preferred_count
 
-    scored, consequence_anchors, boosted_consequences = _boost_related_consequence_results(scored, profile)
+    # Disabled for the reference-weight experiment.
+    # The previous post-score consequence boost added a large manual bonus
+    # to point-deduction/license-revocation passages after retrieval scoring.
+    # Keep anchor extraction only for concise resolved-reference explanations,
+    # but let ranking be determined by the retriever scores and generic filters.
+    consequence_anchors = _anchor_selectors_for_consequences(scored, profile)
+    boosted_consequences = 0
+    # scored, consequence_anchors, boosted_consequences = _boost_related_consequence_results(scored, profile)
 
     retrieval = dict(retrieval)
     retrieval["results"] = [result for _, result in scored[:top_k]]
@@ -1548,7 +1596,7 @@ def _answer_focus_instructions(question: str) -> list[str]:
             "Neu CONTEXT cho thay cung mot hanh vi va cung loai phuong tien co nhieu hau qua phap ly, phai tong hop day du theo thu tu: phat tien; tru diem giay phep lai xe; tuoc quyen su dung giay phep lai xe; hinh thuc xu phat bo sung khac neu co."
         )
         instructions.append(
-            "Khong duoc bo qua tru diem hoac tuoc GPLX chi vi cau hoi dung cum 'bi phat bao nhieu'."
+            "Chi duoc neu tru diem hoac tuoc GPLX khi CONTEXT co passage rieng chua chinh thong tin do va phai citation dung passage do; neu CONTEXT khong co passage do thi khong duoc tu them."
         )
     if profile.get("license_point_deduction"):
         instructions.append(
@@ -1564,11 +1612,166 @@ def _answer_focus_instructions(question: str) -> list[str]:
     return instructions
 
 
+def _clean_resolved_reference_text(value: str) -> str:
+    value = repair_mojibake_text(value or "").strip()
+    value = re.sub(r"\s*\((?:inline_if_short|inline|resolved)[^)]*\)\s*$", "", value).strip()
+    return re.sub(r"\s+", " ", value).strip(" -;")
+
+
+def _resolved_reference_queues(result: dict[str, Any]) -> dict[str, list[str]]:
+    raw_text = _result_raw_text(result)
+    marker_match = re.search(
+        r"(?:Tham chiếu đã giải|Resolved references):(?P<body>.*?)(?:\n\s*Nội dung:|\Z)",
+        raw_text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not marker_match:
+        return {}
+
+    queues: dict[str, list[str]] = {}
+    for raw_line in marker_match.group("body").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        line = line.lstrip("-").strip()
+        if "->" not in line:
+            continue
+        label, content = line.split("->", 1)
+        key = _normalize_for_match(label)
+        content = _clean_resolved_reference_text(content)
+        if key and content:
+            queues.setdefault(key, []).append(content)
+    return queues
+
+
+def _pop_resolved_reference(queues: dict[str, list[str]], label: str) -> str | None:
+    key = _normalize_for_match(label)
+    values = queues.get(key) or []
+    if not values:
+        return None
+    return values.pop(0)
+
+
+def _reference_expression_for_result(result: dict[str, Any]) -> str | None:
+    raw_text = _result_raw_text(result)
+    primary_text = _result_primary_text(result)
+    for text in (primary_text, raw_text):
+        match = re.search(
+            r"quy định tại\s+(.+?)\s+Điều này",
+            repair_mojibake_text(text or ""),
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        if match:
+            return re.sub(r"\s+", " ", match.group(1)).strip(" ;.")
+    return None
+
+
+def _reference_allowed_by_selectors(
+    result: dict[str, Any],
+    point: str | None,
+    clause: str | None,
+    selectors: list[dict[str, str]] | None,
+) -> bool:
+    if not selectors:
+        return True
+
+    result_article = _extract_unit_selector(result).get("article")
+    for selector in selectors:
+        article = selector.get("article")
+        if article and result_article and article != result_article:
+            continue
+        clause_filter = selector.get("clause")
+        if clause_filter and clause != clause_filter:
+            continue
+        point_filter = selector.get("point")
+        if point_filter:
+            if not point:
+                continue
+            if not (_point_aliases(point) & _point_aliases(point_filter)):
+                continue
+        return True
+    return False
+
+
+def _resolved_reference_explanation(
+    result: dict[str, Any],
+    max_lines: int = 10,
+    reference_selectors: list[dict[str, str]] | None = None,
+) -> list[str]:
+    queues = _resolved_reference_queues(result)
+    if not queues:
+        return []
+
+    expression = _reference_expression_for_result(result)
+    lines: list[str] = []
+    seen: set[str] = set()
+
+    if expression:
+        for segment in re.split(r";", expression):
+            segment = segment.strip(" ,.;")
+            if not segment:
+                continue
+            clause_match = re.search(r"khoản\s+(\d+)", segment, flags=re.IGNORECASE)
+            clause = clause_match.group(1) if clause_match else None
+            points = re.findall(r"điểm\s+([a-zA-ZđĐ]+)", segment, flags=re.IGNORECASE)
+
+            if points:
+                for point in points:
+                    point_label = f"điểm {point.lower()}"
+                    if not _reference_allowed_by_selectors(result, point.lower(), clause, reference_selectors):
+                        # Still consume the queued duplicate label so repeated "điểm b"
+                        # lines stay aligned with their source clauses.
+                        _pop_resolved_reference(queues, point_label)
+                        continue
+                    content = _pop_resolved_reference(queues, point_label)
+                    if not content:
+                        continue
+                    selector = f"{point_label} khoản {clause}" if clause else point_label
+                    line = f"- {selector} -> {content}"
+                    key = _normalize_for_match(line)
+                    if key not in seen:
+                        seen.add(key)
+                        lines.append(line)
+            elif clause:
+                clause_label = f"khoản {clause}"
+                if not _reference_allowed_by_selectors(result, None, clause, reference_selectors):
+                    _pop_resolved_reference(queues, clause_label)
+                    continue
+                content = _pop_resolved_reference(queues, clause_label)
+                if content:
+                    line = f"- {clause_label} -> {content}"
+                    key = _normalize_for_match(line)
+                    if key not in seen:
+                        seen.add(key)
+                        lines.append(line)
+
+            if len(lines) >= max_lines:
+                return lines[:max_lines]
+
+    if lines:
+        return lines[:max_lines]
+
+    if reference_selectors:
+        return []
+
+    for label_key, values in queues.items():
+        for value in values:
+            line = f"- {label_key} -> {value}"
+            key = _normalize_for_match(line)
+            if key not in seen:
+                seen.add(key)
+                lines.append(line)
+            if len(lines) >= max_lines:
+                return lines
+    return lines
+
+
 def format_context(
     results: list[dict[str, Any]],
     max_passages: int = 5,
     max_chars_per_passage: int = 1800,
     include_effectivity: bool = True,
+    reference_selectors: list[dict[str, str]] | None = None,
 ) -> str:
     blocks = []
     for i, raw_result in enumerate(results[:max_passages], start=1):
@@ -1576,7 +1779,7 @@ def format_context(
         doc_number = result.get("document_number") or result.get("document_id") or "Không rõ số hiệu"
         doc_title = result.get("document_title") or ""
         path = result.get("path_text") or result.get("passage_id") or "Không rõ đường dẫn"
-        text = (result.get("text") or "").strip()
+        text = (_result_primary_text(result) or _result_raw_text(result)).strip()
         if not text:
             continue
         if len(text) > max_chars_per_passage:
@@ -1585,16 +1788,24 @@ def format_context(
         title_line = f"Tên văn bản: {doc_title}\n" if doc_title else ""
         effectivity_lines = _effectivity_lines_for_result(result) if include_effectivity else []
         effectivity_text = "".join(f"{line}\n" for line in effectivity_lines)
-        consequence_tags = _result_consequence_tags(result)
-        consequence_line = f"Loai thong tin: {', '.join(consequence_tags)}\n" if consequence_tags else ""
+        reference_explanation_lines = _resolved_reference_explanation(
+            result,
+            reference_selectors=reference_selectors,
+        )
+        reference_explanation_text = (
+            "\nTham chiếu liên quan đến nội dung trên:\n"
+            + "\n".join(reference_explanation_lines)
+            if reference_explanation_lines
+            else ""
+        )
         blocks.append(
             f"[{i}]\n"
             f"Số hiệu: {doc_number}\n"
             f"{title_line}"
             f"{effectivity_text}"
-            f"{consequence_line}"
             f"Đường dẫn: {path}\n"
             f"Nội dung: {text}"
+            f"{reference_explanation_text}"
         )
     return "\n\n".join(blocks)
 
@@ -1612,6 +1823,8 @@ CONTEXT:
 {context}
 
 Hãy trả lời câu hỏi dựa trên các căn cứ trong CONTEXT.
+Mỗi thông tin lấy từ passage nào phải citation ngay sau ý đó bằng số passage [n].
+Phần "Dựa theo" phải liệt kê đủ mọi passage đã citation theo dạng "[n] Điều X, Khoản Y, Điểm Z, <số hiệu văn bản>".
 """
         return [
             {"role": "system", "content": DIRECT_SYSTEM_PROMPT},
@@ -1638,8 +1851,15 @@ Yêu cầu:
 1. Tự tách câu hỏi thành từng ý.
 2. Tự tìm cụm đáp án trực tiếp trong CONTEXT.
 3. Câu trả lời cuối cùng phải chứa nguyên văn cụm đáp án quan trọng, đặc biệt là số liệu, mức phạt, thời hạn, điều kiện, hành vi bị cấm.
-4. Không in phân tích nội bộ.
-5. Chỉ in đúng định dạng đã yêu cầu.
+4. Mỗi ý/mệnh đề dùng thông tin từ passage nào thì phải citation ngay sau ý đó bằng số passage [n]. Nếu một ý dùng nhiều passage thì citation đủ, ví dụ [1][3].
+5. Phần "Dựa theo" phải liệt kê đủ mọi passage đã citation trong phần trả lời, theo dạng "[n] Điều X, Khoản Y, Điểm Z, <số hiệu văn bản>".
+6. Không được nêu mức phạt, trừ điểm, tước giấy phép, điều kiện, ngoại lệ, thời hạn, phạm vi áp dụng hoặc nội dung sửa đổi/bổ sung nếu không citation đến passage chứa thông tin đó.
+7. Citation phải khớp với chính mệnh đề đứng trước nó: mệnh đề phạt tiền chỉ citation passage chứa mức phạt tiền; mệnh đề trừ điểm chỉ citation passage chứa quy định trừ điểm; mệnh đề tước giấy phép chỉ citation passage chứa quy định tước giấy phép.
+8. Không được dùng một citation để chứng minh thông tin mà passage đó không chứa. Không citation passage cùng văn bản/cùng điều nếu passage đó không trực tiếp hỗ trợ mệnh đề đang viết.
+9. Nếu một passage khác hành vi, khác đối tượng/phương tiện, hoặc có điều kiện bổ sung không được hỏi, phải bỏ qua passage đó và không đưa vào phần "Dựa theo".
+10. Trước khi in câu trả lời, tự kiểm tra: mọi số [n] trong câu trả lời phải xuất hiện trong "Dựa theo"; mọi dòng trong "Dựa theo" phải tương ứng với ít nhất một mệnh đề đã citation; không được có căn cứ thừa.
+11. Không in phân tích nội bộ.
+12. Chỉ in đúng định dạng đã yêu cầu.
 """
     if focus_text:
         user_prompt += f"\n{focus_text}"
@@ -1649,166 +1869,190 @@ Yêu cầu:
     ]
 
 
-def _format_result_citation(result: dict[str, Any]) -> str:
+def _strip_answer_metadata_lines(answer: str) -> str:
+    lines = repair_mojibake_text(answer or "").splitlines()
+    kept: list[str] = []
+    skip_path_continuation = False
+
+    for line in lines:
+        stripped = line.strip()
+        normalized = _normalize_for_match(stripped.lstrip("-* \t"))
+        is_metadata_line = (
+            normalized.startswith("duong dan")
+            or normalized.startswith("duong dan phap ly")
+            or normalized.startswith("hieu luc van ban")
+            or normalized.startswith("tinh trang hieu luc van ban")
+            or normalized.startswith("path")
+            or normalized.startswith("legal path")
+        )
+        if is_metadata_line:
+            skip_path_continuation = True
+            continue
+
+        if skip_path_continuation:
+            if not stripped:
+                skip_path_continuation = False
+                continue
+            if ">" in stripped and re.search(r"\d{1,4}\s*/\s*\d{4}\s*/", stripped):
+                continue
+            skip_path_continuation = False
+
+        kept.append(line.rstrip())
+
+    cleaned = "\n".join(kept).strip()
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned
+
+
+def _answer_citation_lines(answer: str) -> list[str]:
+    lines = repair_mojibake_text(answer or "").splitlines()
+    citations: list[str] = []
+    in_citations = False
+    for line in lines:
+        stripped = line.strip()
+        normalized = _normalize_for_match(stripped)
+        if normalized.startswith("dua theo") or normalized.startswith("dua vao"):
+            in_citations = True
+            if ":" in stripped:
+                rest = stripped.split(":", 1)[1].strip()
+                if rest:
+                    citations.append(rest.lstrip("- ").strip())
+            continue
+        if not in_citations:
+            continue
+        if normalized.startswith("tra loi") or normalized.startswith("hieu luc"):
+            break
+        if stripped:
+            citations.append(stripped.lstrip("- ").strip())
+    return citations
+
+
+def _selector_from_citation_text(text: str) -> dict[str, str]:
+    normalized = _normalize_for_match(text)
+    selector: dict[str, str] = {}
+    article_match = re.search(r"\bdieu\s+(\d+)\b", normalized)
+    clause_match = re.search(r"\bkhoan\s+(\d+)\b", normalized)
+    point_match = re.search(r"\bdiem\s+([a-z]+|d|dd|\d+)\b", normalized)
+    if article_match:
+        selector["article"] = article_match.group(1)
+    if clause_match:
+        selector["clause"] = clause_match.group(1)
+    if point_match:
+        selector["point"] = point_match.group(1)
+    return selector
+
+
+def _citation_mentions_doc(text: str, result: dict[str, Any]) -> bool:
+    normalized = _normalize_for_match(text)
+    for value in (result.get("document_number"), result.get("document_id")):
+        doc_text = _normalize_for_match(str(value or ""))
+        if doc_text and doc_text in normalized:
+            return True
+    return False
+
+
+def _selector_match_score(citation_selector: dict[str, str], result_selector: dict[str, str]) -> int:
+    if not citation_selector:
+        return 0
+    score = 0
+    for key in ("article", "clause"):
+        expected = citation_selector.get(key)
+        if expected:
+            if result_selector.get(key) != expected:
+                return 0
+            score += 2
+    expected_point = citation_selector.get("point")
+    if expected_point:
+        result_point = result_selector.get("point")
+        if not result_point or not (_point_aliases(expected_point) & _point_aliases(result_point)):
+            return 0
+        score += 3
+    return score
+
+
+def _match_citation_to_result(citation: str, results: list[dict[str, Any]]) -> dict[str, Any] | None:
+    citation_selector = _selector_from_citation_text(citation)
+    best_score = 0
+    best_result: dict[str, Any] | None = None
+    for result in results:
+        result_selector = _extract_unit_selector(result)
+        selector_score = _selector_match_score(citation_selector, result_selector)
+        doc_score = 2 if _citation_mentions_doc(citation, result) else 0
+        if citation_selector and not selector_score:
+            continue
+        if not citation_selector and not doc_score:
+            continue
+        score = selector_score + doc_score
+        if score > best_score:
+            best_score = score
+            best_result = result
+    return best_result
+
+
+def _effectivity_note_for_result(result: dict[str, Any]) -> str | None:
+    metadata = load_effectivity_metadata()
+    doc_meta = _doc_effectivity(result, metadata)
+    if not doc_meta:
+        return None
+
     selector = _extract_unit_selector(result)
-    parts: list[str] = []
-    if selector.get("article"):
-        parts.append(f"Điều {selector['article']}")
-    if selector.get("clause"):
-        parts.append(f"Khoản {selector['clause']}")
-    if selector.get("point"):
-        point = selector["point"]
-        if point in {"d", "dd"}:
-            point = "đ"
-        parts.append(f"Điểm {point}")
-    doc = result.get("document_number") or result.get("document_id")
-    if doc:
-        doc_text = str(doc)
-        title_text = _normalize_for_match(result.get("document_title") or "")
-        if "nghi dinh" in title_text:
-            doc_text = f"Nghị định {doc_text}"
-        elif "thong tu" in title_text:
-            doc_text = f"Thông tư {doc_text}"
-        elif "luat" in title_text:
-            doc_text = f"Luật {doc_text}"
-        parts.append(doc_text)
-    return ", ".join(parts) if parts else str(doc or result.get("path_text") or "")
+    doc_key = _doc_effectivity_key(result, metadata)
+    override_rows = [
+        row for row in metadata["unit_overrides"].get(doc_key, [])
+        if _selector_matches(row, selector)
+    ]
+    start_value = (override_rows[0].get("effective_from") if override_rows else None) or doc_meta.get("effective_from")
+    start_text = _format_date(start_value)
+    end_value = _cell(doc_meta.get("effective_to"))
+    if end_value:
+        return f"có hiệu lực từ ngày {start_text}; đã hết hiệu lực ngày {_format_date(end_value)}."
+    return f"có hiệu lực từ ngày {start_text}."
 
 
-def _extract_point_deduction_summary(result: dict[str, Any]) -> str | None:
-    text = _result_body_match_text(result, tail_depth=6)
-    match = re.search(r"bi tru diem giay phep lai xe\s+(\d+)\s+diem", text)
-    if not match:
-        return None
-    return f"Ngoài ra, người điều khiển xe thực hiện hành vi này bị trừ điểm giấy phép lái xe {match.group(1)} điểm."
-
-
-def _extract_license_revocation_summary(result: dict[str, Any]) -> str | None:
-    text = _result_body_match_text(result, tail_depth=6)
-    match = re.search(
-        r"bi tuoc quyen su dung giay phep lai xe tu\s+([0-9]+\s+thang)\s+den\s+([0-9]+\s+thang)",
-        text,
-    )
-    if not match:
-        return None
-    return (
-        "Ngoài ra, người điều khiển xe thực hiện hành vi này bị tước quyền sử dụng giấy phép lái xe "
-        f"từ {match.group(1)} đến {match.group(2)}."
-    )
-
-
-def _append_bullets(section_text: str, items: list[str], header: str) -> str:
-    section_text = (section_text or "").strip()
-    if not items:
-        return section_text or header
-
-    if section_text.startswith(header):
-        content = section_text[len(header):].strip()
-    else:
-        content = section_text
-
-    bullets: list[str] = []
-    if content:
-        lines = [line.strip() for line in content.splitlines() if line.strip()]
-        if lines and all(line.startswith("- ") for line in lines):
-            bullets.extend(lines)
-        else:
-            bullets.append(f"- {content.lstrip('- ').strip()}")
-
-    normalized_existing = {_normalize_for_match(line) for line in bullets}
-    for item in items:
-        bullet = f"- {item.strip()}"
-        if _normalize_for_match(bullet) not in normalized_existing:
-            bullets.append(bullet)
-            normalized_existing.add(_normalize_for_match(bullet))
-
-    return f"{header}\n" + "\n".join(bullets)
-
-
-def _answer_mentions_point_deduction(normalized_answer: str) -> bool:
-    return bool(
-        re.search(
-            r"\b(tru\s+\d+\s+diem\s+giay\s+phep\s+lai\s+xe|tru\s+diem\s+giay\s+phep\s+lai\s+xe|"
-            r"bi\s+tru\s+diem\s+giay\s+phep\s+lai\s+xe\s+\d+\s+diem)\b",
-            normalized_answer,
-        )
-    )
-
-
-def _answer_mentions_license_revocation(normalized_answer: str) -> bool:
-    return bool(
-        re.search(
-            r"\b(tuoc\s+quyen\s+su\s+dung\s+giay\s+phep\s+lai\s+xe|"
-            r"bi\s+tuoc\s+quyen\s+su\s+dung\s+giay\s+phep\s+lai\s+xe)\b",
-            normalized_answer,
-        )
-    )
-
-
-def _augment_answer_with_related_consequences(
+def _append_effectivity_notes_from_answer_citations(
     answer: str,
     retrieval: dict[str, Any] | None,
-    question: str,
 ) -> str:
-    answer = answer or ""
-    retrieval_results = (retrieval or {}).get("results") or []
-    if not answer or not retrieval_results:
+    if not answer or INSUFFICIENT_CONTEXT_ANSWER in answer:
+        return answer
+    results = (retrieval or {}).get("results") or []
+    if not results:
         return answer
 
-    profile = _query_profile(question)
-    if not profile.get("administrative_penalty"):
-        return answer
-    if profile.get("temporal_applicability"):
+    citations = _answer_citation_lines(answer)
+    if not citations:
         return answer
 
-    scored = [
-        (float(result.get("rerank_score") or result.get("score") or 0.0), result)
-        for result in retrieval_results
-    ]
-    anchors = _anchor_selectors_for_consequences(scored, profile)
-    if not anchors:
-        return answer
-
-    normalized_answer = _normalize_for_match(answer)
-    extra_answer_items: list[str] = []
-    extra_citations: list[str] = []
-
-    for result in retrieval_results:
-        if not any(_result_references_selector(result, selector) for selector in anchors):
+    matched_notes: list[str] = []
+    seen: set[tuple[str, str, str]] = set()
+    for citation in citations:
+        result = _match_citation_to_result(citation, results)
+        if not result:
             continue
-        tags = set(_result_consequence_tags(result))
-        if "tru_diem_gplx" in tags and not _answer_mentions_point_deduction(normalized_answer):
-            summary = _extract_point_deduction_summary(result)
-            if summary:
-                extra_answer_items.append(summary)
-                extra_citations.append(_format_result_citation(result))
-                normalized_answer += " tru diem giay phep lai xe "
-        if "tuoc_gplx" in tags and not _answer_mentions_license_revocation(normalized_answer):
-            summary = _extract_license_revocation_summary(result)
-            if summary:
-                extra_answer_items.append(summary)
-                extra_citations.append(_format_result_citation(result))
-                normalized_answer += " tuoc quyen su dung giay phep lai xe "
+        note = _effectivity_note_for_result(result)
+        if not note:
+            continue
+        selector = _extract_unit_selector(result)
+        key = (
+            selector.get("article", ""),
+            selector.get("clause", ""),
+            selector.get("point", ""),
+            note,
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        matched_notes.append(note)
 
-    if not extra_answer_items:
+    if not matched_notes:
         return answer
 
-    citation_label = "Dựa vào:"
-    answer_part = answer.strip()
-    citation_part = ""
-    for label in ("Dựa vào:", "Dựa theo:"):
-        if label in answer:
-            answer_part, citation_part = answer.split(label, 1)
-            citation_label = label
-            answer_part = answer_part.strip()
-            citation_part = citation_part.strip()
-            break
-
-    answer_part = _append_bullets(answer_part, extra_answer_items, "Trả lời:")
-    if extra_citations:
-        citation_part = _append_bullets(citation_part, extra_citations, citation_label)
-        return f"{answer_part}\n{citation_part}".strip()
-    return answer_part.strip()
+    unique_notes = list(dict.fromkeys(matched_notes))
+    if len(unique_notes) == 1:
+        note_text = f"Các quy định này {unique_notes[0]}"
+    else:
+        note_text = "Hiệu lực của các căn cứ:\n" + "\n".join(f"- {note}" for note in unique_notes)
+    return f"{answer.strip()}\n\n{note_text}".strip()
 
 
 def run_retriever(
@@ -1824,7 +2068,10 @@ def run_retriever(
     reference_weight: float = 0.30,
     use_reference_expansion: bool = True,
     semantic_entity_top_k: int = 20,
-    semantic_entity_min_score: float = 0.45,
+    semantic_entity_min_score: float = 0.60,
+    use_query_gliner: bool = True,
+    query_gliner_model_dir: Path | None = None,
+    query_gliner_threshold: float = 0.85,
 ) -> dict[str, Any]:
     cmd = [
         sys.executable,
@@ -1854,6 +2101,14 @@ def run_retriever(
     ]
     if not use_reference_expansion:
         cmd.append("--no-reference-expansion")
+    if use_query_gliner:
+        cmd.append("--use-query-gliner")
+        cmd.extend([
+            "--query-gliner-model-dir",
+            str(query_gliner_model_dir or QUERY_GLINER_MODEL_DIR),
+            "--query-gliner-threshold",
+            str(query_gliner_threshold),
+        ])
 
     result = subprocess.run(
         cmd,
@@ -1885,11 +2140,14 @@ def run_retrieval_stage(
     reference_weight: float = 0.30,
     use_reference_expansion: bool = True,
     semantic_entity_top_k: int = 20,
-    semantic_entity_min_score: float = 0.45,
+    semantic_entity_min_score: float = 0.60,
+    use_query_gliner: bool = True,
+    query_gliner_model_dir: Path | None = None,
+    query_gliner_threshold: float = 0.85,
     progress_callback: ProgressCallback | None = None,
 ) -> tuple[str, dict[str, Any]]:
     retrieval_query = apply_rule_based_query_rewrite(retrieval_seed_query or original_query)
-    retrieval_top_k = max(top_k, 40) if needs_retrieval_postprocess(original_query, retrieval_query) else top_k
+    retrieval_top_k = top_k
     _emit_progress(
         progress_callback,
         "retrieval_started",
@@ -1912,6 +2170,9 @@ def run_retrieval_stage(
         use_reference_expansion=use_reference_expansion,
         semantic_entity_top_k=semantic_entity_top_k,
         semantic_entity_min_score=semantic_entity_min_score,
+        use_query_gliner=use_query_gliner,
+        query_gliner_model_dir=query_gliner_model_dir,
+        query_gliner_threshold=query_gliner_threshold,
     )
     _emit_progress(
         progress_callback,
@@ -1919,7 +2180,17 @@ def run_retrieval_stage(
         raw_result_count=len(retrieval.get("results") or []),
         activated_entity_count=len(retrieval.get("activated_entities") or []),
     )
-    retrieval = postprocess_retrieval_for_query(retrieval, original_query, retrieval_query, top_k=top_k)
+    retrieval = dict(retrieval)
+    retrieval.setdefault("debug", {})
+    retrieval["debug"]["postprocess"] = {
+        "disabled": True,
+        "reason": "score_only_experiment",
+        "rule_based_retrieval_query": retrieval_query,
+        "input_results": len(retrieval.get("results") or []),
+        "output_results": len(retrieval.get("results") or []),
+        "consequence_anchor_selectors": [],
+        "boosted_consequence_results": 0,
+    }
     _emit_progress(
         progress_callback,
         "retrieval_done",
@@ -1943,7 +2214,10 @@ def retrieve_passages_for_query(
     reference_weight: float = 0.30,
     use_reference_expansion: bool = True,
     semantic_entity_top_k: int = 20,
-    semantic_entity_min_score: float = 0.45,
+    semantic_entity_min_score: float = 0.60,
+    use_query_gliner: bool = True,
+    query_gliner_model_dir: Path | None = None,
+    query_gliner_threshold: float = 0.85,
     conversation_memory: ConversationMemory | dict[str, Any] | None = None,
     model_name: str = "gpt-4o-mini",
     mode: str = "openai",
@@ -2069,6 +2343,9 @@ def retrieve_passages_for_query(
         use_reference_expansion=use_reference_expansion,
         semantic_entity_top_k=semantic_entity_top_k,
         semantic_entity_min_score=semantic_entity_min_score,
+        use_query_gliner=use_query_gliner,
+        query_gliner_model_dir=query_gliner_model_dir,
+        query_gliner_threshold=query_gliner_threshold,
         progress_callback=progress_callback,
     )
     updated_memory = update_memory_after_answer(memory, original_query, processing_query, retrieval)
@@ -2415,7 +2692,10 @@ def answer_one(
     reference_weight: float = 0.30,
     use_reference_expansion: bool = True,
     semantic_entity_top_k: int = 20,
-    semantic_entity_min_score: float = 0.45,
+    semantic_entity_min_score: float = 0.60,
+    use_query_gliner: bool = True,
+    query_gliner_model_dir: Path | None = None,
+    query_gliner_threshold: float = 0.85,
     load_4bit: bool = False,
     dtype: str = "auto",
     device_map: str = "auto",
@@ -2650,12 +2930,16 @@ def answer_one(
         use_reference_expansion=use_reference_expansion,
         semantic_entity_top_k=semantic_entity_top_k,
         semantic_entity_min_score=semantic_entity_min_score,
+        use_query_gliner=use_query_gliner,
+        query_gliner_model_dir=query_gliner_model_dir,
+        query_gliner_threshold=query_gliner_threshold,
         progress_callback=progress_callback,
     )
     context = format_context(
         retrieval.get("results", []),
         max_passages=max_context_passages,
         max_chars_per_passage=max_chars_per_passage,
+        reference_selectors=(retrieval.get("debug", {}).get("postprocess", {}) or {}).get("consequence_anchor_selectors") or None,
     )
     context_passages = min(len(retrieval.get("results", [])), max_context_passages)
     if not context.strip():
@@ -2707,11 +2991,8 @@ def answer_one(
             )
         _emit_progress(progress_callback, "generation_done", answer_chars=len(answer or ""))
 
-    answer = _augment_answer_with_related_consequences(
-        answer=answer,
-        retrieval=retrieval,
-        question=prompt_query if context.strip() else (processing_query or original_query),
-    )
+    answer = _strip_answer_metadata_lines(answer)
+    answer = _append_effectivity_notes_from_answer_citations(answer, retrieval)
 
     updated_memory = update_memory_after_answer(memory, original_query, processing_query, retrieval, answer=answer)
     _emit_progress(progress_callback, "completed", route=route)

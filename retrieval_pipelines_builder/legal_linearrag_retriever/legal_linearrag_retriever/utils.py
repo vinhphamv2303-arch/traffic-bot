@@ -79,6 +79,7 @@ def collapse_ws(text: str) -> str:
 
 def strip_accents(text: str) -> str:
     text = (text or "").replace("đ", "d").replace("Đ", "D")
+    text = text.replace("\u0111", "d").replace("\u0110", "D")
     return unicodedata.normalize("NFKD", text).encode("ASCII", "ignore").decode("utf-8")
 
 

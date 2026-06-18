@@ -644,6 +644,56 @@ def write_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
             writer.writerow(row)
 
 
+def write_group_csv(path: Path, report: dict[str, Any]) -> None:
+    fields = [
+        "pipeline_key",
+        "pipeline",
+        "model_key",
+        "model",
+        "benchmark_group",
+        "count",
+        "doc_hit@1",
+        "doc_hit@5",
+        "doc_recall@5",
+        "doc_mrr@5",
+        "doc_ndcg@5",
+        "context_contains_any_highlight",
+        "context_highlight_recall",
+        "context_contains_any_relaxed_target",
+        "context_relaxed_target_recall",
+        "context_contains_all_relaxed_targets",
+        "answer_contains_any_highlight",
+        "answer_highlight_recall",
+        "answer_contains_any_relaxed_target",
+        "answer_relaxed_target_recall",
+        "answer_contains_all_relaxed_targets",
+        "answer_strict_miss_relaxed_hit",
+        "gold_answer_contained",
+        "answer_contains_any_citation",
+        "answer_citation_recall",
+        "refusal",
+        "error_count",
+        "empty_context_count",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        for run_key, run_report in sorted(report["runs"].items()):
+            metadata = run_report.get("metadata") or {}
+            pipeline_key = metadata.get("retrieval_pipeline") or run_key.split("__", 1)[0]
+            model_key = metadata.get("generation_model_key") or run_key.rsplit("__", 1)[-1]
+            for group, metrics in sorted(run_report["by_group"].items()):
+                writer.writerow({
+                    "pipeline_key": pipeline_key,
+                    "pipeline": PIPELINE_DISPLAY_NAMES.get(pipeline_key, pipeline_key),
+                    "model_key": model_key,
+                    "model": MODEL_DISPLAY_NAMES.get(model_key, model_key),
+                    "benchmark_group": group,
+                    **metrics,
+                })
+
+
 def pct(value: float) -> str:
     return f"{float(value) * 100:.1f}%"
 
@@ -675,6 +725,35 @@ def write_markdown(path: Path, summary_rows: list[dict[str, Any]], report: dict[
             f"| {pct(row['answer_contains_any_citation'])} "
             f"| {pct(row['refusal'])} |"
         )
+
+    lines.extend([
+        "",
+        "## Breakdown By Question Group",
+        "",
+        "| Pipeline | Model | Group | Count | Doc Hit@5 | Doc Recall@5 | Context Relaxed Hit | Context Relaxed Recall | Answer Relaxed Hit | Answer Relaxed Recall | Answer Relaxed All | Full Gold | Citation In Answer | Refusal |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ])
+    for run_key, run_report in sorted(report["runs"].items()):
+        metadata = run_report.get("metadata") or {}
+        pipeline_key = metadata.get("retrieval_pipeline") or run_key.split("__", 1)[0]
+        model_key = metadata.get("generation_model_key") or run_key.rsplit("__", 1)[-1]
+        for group, metrics in sorted(run_report["by_group"].items()):
+            lines.append(
+                f"| {PIPELINE_DISPLAY_NAMES.get(pipeline_key, pipeline_key)} "
+                f"| {MODEL_DISPLAY_NAMES.get(model_key, model_key)} "
+                f"| `{group}` "
+                f"| {metrics['count']} "
+                f"| {pct(metrics['doc_hit@5'])} "
+                f"| {pct(metrics['doc_recall@5'])} "
+                f"| {pct(metrics['context_contains_any_relaxed_target'])} "
+                f"| {pct(metrics['context_relaxed_target_recall'])} "
+                f"| {pct(metrics['answer_contains_any_relaxed_target'])} "
+                f"| {pct(metrics['answer_relaxed_target_recall'])} "
+                f"| {pct(metrics['answer_contains_all_relaxed_targets'])} "
+                f"| {pct(metrics['gold_answer_contained'])} "
+                f"| {pct(metrics['answer_contains_any_citation'])} "
+                f"| {pct(metrics['refusal'])} |"
+            )
 
     lines.extend([
         "",
@@ -774,13 +853,16 @@ def main() -> None:
 
     json_path = args.output_dir / "answer_metrics_detailed.json"
     csv_path = args.output_dir / "answer_metrics_summary.csv"
+    group_csv_path = args.output_dir / "answer_metrics_by_group.csv"
     md_path = args.output_dir / "answer_metrics_report.md"
     write_json(json_path, report)
     write_summary_csv(csv_path, summary_rows)
+    write_group_csv(group_csv_path, report)
     write_markdown(md_path, summary_rows, report)
 
     print("saved", json_path)
     print("saved", csv_path)
+    print("saved", group_csv_path)
     print("saved", md_path)
     print(json.dumps(summary_rows, ensure_ascii=False, indent=2))
 

@@ -260,6 +260,37 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
             writer.writerow(row)
 
 
+def write_group_csv(path: Path, report: dict[str, Any]) -> None:
+    fields = [
+        "model_key",
+        "model",
+        "benchmark_group",
+        "count",
+        "doc_hit@1", "doc_hit@3", "doc_hit@5",
+        "doc_recall@1", "doc_recall@3", "doc_recall@5",
+        "passage_doc_precision@5",
+        "doc_mrr@5", "doc_ndcg@5",
+        "citation_hit@1", "citation_hit@3", "citation_hit@5",
+        "citation_recall@5",
+        "answer_highlight_hit@1", "answer_highlight_hit@3", "answer_highlight_hit@5",
+        "answer_highlight_recall@5",
+        "error_count", "empty_top_results_count",
+        "no_doc_hit@5", "no_citation_hit@5", "no_answer_highlight_hit@5",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        for model_key, model_report in report["models"].items():
+            for group, metrics in sorted(model_report["by_group"].items()):
+                writer.writerow({
+                    "model_key": model_key,
+                    "model": MODEL_DISPLAY_NAMES.get(model_key, model_key),
+                    "benchmark_group": group,
+                    **metrics,
+                })
+
+
 def pct(value: float) -> str:
     return f"{float(value) * 100:.1f}%"
 
@@ -330,17 +361,24 @@ def write_markdown_report(path: Path, report: dict[str, Any], summary_rows: list
 
     clean_lines.append("## Breakdown By Question Group")
     clean_lines.append("")
-    clean_lines.append("| Model | Single Fact Doc Hit@5 | Comparison/Two Facts Doc Hit@5 | Multi-hop Doc Hit@5 | Multi-hop Doc Recall@5 |")
-    clean_lines.append("|---|---:|---:|---:|---:|")
-    for model_key in report["models"]:
-        groups = report["models"][model_key]["by_group"]
-        clean_lines.append(
-            f"| {MODEL_DISPLAY_NAMES.get(model_key, model_key)} "
-            f"| {pct(groups['single_fact']['doc_hit@5'])} "
-            f"| {pct(groups['comparison_or_two_facts']['doc_hit@5'])} "
-            f"| {pct(groups['multi_hop_cross_doc']['doc_hit@5'])} "
-            f"| {pct(groups['multi_hop_cross_doc']['doc_recall@5'])} |"
-        )
+    clean_lines.append("| Model | Group | Count | Doc Hit@1 | Doc Hit@5 | Doc Recall@5 | MRR@5 | nDCG@5 | Citation Hit@5 | Citation Recall@5 | Answer Hit@5 | Answer Recall@5 |")
+    clean_lines.append("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+    for model_key, model_report in report["models"].items():
+        for group, metrics in sorted(model_report["by_group"].items()):
+            clean_lines.append(
+                f"| {MODEL_DISPLAY_NAMES.get(model_key, model_key)} "
+                f"| `{group}` "
+                f"| {metrics['count']} "
+                f"| {pct(metrics['doc_hit@1'])} "
+                f"| {pct(metrics['doc_hit@5'])} "
+                f"| {pct(metrics['doc_recall@5'])} "
+                f"| {metrics['doc_mrr@5']:.3f} "
+                f"| {metrics['doc_ndcg@5']:.3f} "
+                f"| {pct(metrics['citation_hit@5'])} "
+                f"| {pct(metrics['citation_recall@5'])} "
+                f"| {pct(metrics['answer_highlight_hit@5'])} "
+                f"| {pct(metrics['answer_highlight_recall@5'])} |"
+            )
     clean_lines.append("")
 
     clean_lines.append("## Doc Miss@5")
@@ -533,13 +571,16 @@ def main() -> None:
 
     report_path = args.output_dir / "retrieval_metrics_detailed_top5.json"
     csv_path = args.output_dir / "retrieval_metrics_summary.csv"
+    group_csv_path = args.output_dir / "retrieval_metrics_by_group.csv"
     md_path = args.output_dir / "retrieval_metrics_report.md"
     write_json(report_path, report)
     write_csv(csv_path, summary_rows)
+    write_group_csv(group_csv_path, report)
     write_markdown_report(md_path, report, summary_rows)
 
     print("saved", report_path)
     print("saved", csv_path)
+    print("saved", group_csv_path)
     print("saved", md_path)
     print(json.dumps(summary_rows, ensure_ascii=False, indent=2))
 
